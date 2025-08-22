@@ -2,11 +2,14 @@ package com.banco.fidc.auth.external.jwt.impl
 
 import com.banco.fidc.auth.external.jwt.exception.JwtSecretException
 import com.banco.fidc.auth.usecase.session.service.JwtSecretService
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.*
@@ -14,19 +17,18 @@ import javax.crypto.SecretKey
 
 @Service
 class JwtSecretServiceImpl(
-    @Value("\${jwt.fallback-secret:default-secret-for-development-only-change-in-production}")
+    private val secretsManagerClient: SecretsManagerClient,
+    @Value("\${aws.secret-manager.jwt.name}")
+    private val jwtSecretName: String,
+    @Value("\${jwt.fallback-secret}")
     private val fallbackSecret: String
 ) : JwtSecretService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     override fun getJwtSecret(): String {
-        // TODO: QUANDO AWS ESTIVER CONFIGURADA, DESCOMENTE AS LINHAS ABAIXO E COMENTE O FALLBACK
-        // return tryGetFromAwsSecrets() ?: tryGetFromFidcPasswordApi() ?: fallbackSecret
-        
-        // MOCK: USANDO FALLBACK PARA DESENVOLVIMENTO
-        logger.warn("USANDO SECRET MOCKADA - AWS Secrets Manager não disponível ainda")
-        return fallbackSecret
+        logger.debug("Buscando JWT secret do AWS Secrets Manager")
+        return tryGetFromAwsSecrets() ?: tryGetFromFidcPasswordApi() ?: fallbackSecret
     }
 
     override fun validateJwtToken(token: String): Map<String, Any> {
@@ -75,15 +77,37 @@ class JwtSecretServiceImpl(
         }
     }
     
-    // MOCK: 3 ESTRATÉGIAS DE FALLBACK - IMPLEMENTAR QUANDO AS INTEGRAÇÕES ESTIVEREM PRONTAS
     private fun tryGetFromAwsSecrets(): String? {
         return try {
-            logger.debug("Tentando buscar JWT secret do AWS Secrets Manager...")
-            // TODO: Implementar busca no AWS Secrets Manager
-            // secretsManagerClient.getSecretValue(...)
-            null // Retorna null para usar próximo fallback
+            logger.debug("Tentando buscar JWT secret do AWS Secrets Manager: $jwtSecretName")
+            
+            val request = GetSecretValueRequest.builder()
+                .secretId(jwtSecretName)
+                .build()
+                
+            val response = secretsManagerClient.getSecretValue(request)
+            val secretString = response.secretString()
+            
+            if (secretString.isNullOrBlank()) {
+                logger.warn("Secret string está vazio no AWS Secrets Manager")
+                return null
+            }
+            
+            // Parse JSON para extrair signingKey
+            val objectMapper = ObjectMapper()
+            val secretMap = objectMapper.readValue(secretString, Map::class.java)
+            val signingKey = secretMap["signingKey"] as? String
+            
+            if (signingKey.isNullOrBlank()) {
+                logger.warn("Chave 'signingKey' não encontrada ou está vazia no secret")
+                return null
+            }
+            
+            logger.info("JWT secret obtido com sucesso do AWS Secrets Manager")
+            return signingKey
+            
         } catch (e: Exception) {
-            logger.warn("Erro ao buscar secret do AWS: ${e.message}")
+            logger.error("Erro ao buscar secret do AWS Secrets Manager: ${e.message}", e)
             null
         }
     }

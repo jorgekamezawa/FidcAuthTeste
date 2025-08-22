@@ -10,8 +10,8 @@ import software.amazon.awssdk.regions.Region
 
 @Configuration
 class AwsBaseConfig(
-    @Value("\${aws.region:us-east-1}") private val awsRegion: String,
-    @Value("\${aws.local-stack.enable:false}") private val localStack: Boolean
+    @Value("\${aws.region}") private val awsRegion: String,
+    @Value("\${aws.local-stack.enable}") private val localStack: Boolean
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 

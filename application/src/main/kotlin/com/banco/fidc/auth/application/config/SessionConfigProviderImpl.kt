@@ -6,13 +6,13 @@ import org.springframework.stereotype.Component
 
 @Component
 class SessionConfigProviderImpl(
-    @Value("\${properties.session.ttl-minutes:30}")
+    @Value("\${properties.session.ttl-minutes}")
     private val ttlMinutes: Int,
     
-    @Value("\${properties.session.cleanup-interval-minutes:5}")
+    @Value("\${properties.session.cleanup-interval-minutes}")
     private val cleanupIntervalMinutes: Int,
     
-    @Value("\${properties.session.secret-length:36}")
+    @Value("\${properties.session.secret-length}")
     private val secretLength: Int
 ) : SessionConfigProvider {
     

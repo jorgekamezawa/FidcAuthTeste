@@ -23,7 +23,7 @@ spring:
     time-zone: America/Sao_Paulo
 
 server:
-  port: 8080
+  port: 8081
   shutdown: graceful
   servlet:
     context-path: /fidc-auth

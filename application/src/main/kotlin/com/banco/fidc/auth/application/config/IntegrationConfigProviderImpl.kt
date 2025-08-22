@@ -6,16 +6,16 @@ import org.springframework.stereotype.Component
 
 @Component
 class IntegrationConfigProviderImpl(
-    @Value("\${external-apis.user-management.base-url:http://localhost:8081}")
+    @Value("\${external-apis.user-management.base-url}")
     private val userManagementBaseUrl: String,
     
-    @Value("\${external-apis.fidc-permission.base-url:http://localhost:8082}")
+    @Value("\${external-apis.fidc-permission.base-url}")
     private val fidcPermissionBaseUrl: String,
     
-    @Value("\${feign.client.config.default.connect-timeout:10000}")
+    @Value("\${feign.client.config.default.connect-timeout}")
     private val timeoutMillis: Int,
     
-    @Value("\${feign.client.config.default.retry-attempts:3}")
+    @Value("\${feign.client.config.default.retry-attempts}")
     private val retryAttempts: Int
 ) : IntegrationConfigProvider {
     

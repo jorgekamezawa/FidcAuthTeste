@@ -7,7 +7,7 @@ import java.util.UUID
 
 @Entity
 @Table(
-    name = "user_session_control",
+    name = "tb_user_session_control",
     indexes = [
         Index(name = "idx_user_session_control_uuid", columnList = "uuid"),
         Index(name = "idx_user_session_control_cpf_partner", columnList = "cpf, partner"),

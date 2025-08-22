@@ -9,7 +9,7 @@ import java.util.UUID
 
 @Entity
 @Table(
-    name = "session_access_history",
+    name = "tb_session_access_history",
     indexes = [
         Index(name = "idx_session_access_history_uuid", columnList = "uuid"),
         Index(name = "idx_session_access_history_user_session_control_id", columnList = "user_session_control_id"),

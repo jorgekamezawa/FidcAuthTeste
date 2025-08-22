@@ -182,7 +182,7 @@ class CreateUserSessionUseCaseImpl(
                 startNewSession(session.sessionId)
             }
         
-        userSessionControlRepository.save(sessionControl)
+        val savedSessionControl = userSessionControlRepository.save(sessionControl)
         
         // Criar histórico de acesso
         val ipAddress = try {
@@ -193,7 +193,7 @@ class CreateUserSessionUseCaseImpl(
         }
         
         val accessHistory = SessionAccessHistory.createNew(
-            userSessionControlId = sessionControl.id,
+            userSessionControlId = savedSessionControl.id,
             sessionId = session.sessionId,
             ipAddress = ipAddress,
             userAgent = input.userAgent,

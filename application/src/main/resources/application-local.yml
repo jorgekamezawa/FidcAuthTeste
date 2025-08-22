@@ -38,13 +38,19 @@ feign:
       default:
         connect-timeout: 5000
         read-timeout: 10000
+        retry-attempts: 3
         logger-level: full
+
+# JWT configuration
+jwt:
+  fallback-secret: local-fallback-key-for-development-only
 
 # Custom properties - hardcoded values
 properties:
   session:
     ttl-minutes: 30
     cleanup-interval-minutes: 5
+    secret-length: 36
 
 logging:
   level:

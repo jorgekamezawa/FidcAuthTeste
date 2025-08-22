@@ -13,7 +13,7 @@ class SecretsManagerConfig(
     private val awsCredentialsProvider: AwsCredentialsProvider,
     private val awsRegion: Region,
     private val isAwsLocalStack: Boolean,
-    @Value("\${aws.local-stack.endpoint:http://localhost:4566}") private val localEndpoint: String
+    @Value("\${aws.local-stack.endpoint}") private val localEndpoint: String
 ) {
     
     @Bean
