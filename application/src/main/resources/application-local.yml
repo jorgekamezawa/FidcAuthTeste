@@ -1,0 +1,54 @@
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fidc_auth_db
+    username: fidc_auth_user
+    password: senha123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
+aws:
+  region: us-east-1
+  local-stack:
+    enable: true
+    endpoint: http://localhost:4566
+  secret-manager:
+    jwt:
+      name: dev/jwt/secret
+
+external-apis:
+  user-management:
+    base-url: http://localhost:8081
+  fidc-permission:
+    base-url: http://localhost:8082
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+        logger-level: full
+
+# Custom properties - hardcoded values
+properties:
+  session:
+    ttl-minutes: 30
+    cleanup-interval-minutes: 5
+
+logging:
+  level:
+    root: INFO
+    com.banco.fidc.auth: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.cloud.openfeign: DEBUG

@@ -1,1 +1,65 @@
-spring.application.name: fidc-auth
+spring:
+  application:
+    name: fidc-auth
+  
+  profiles:
+    active: local
+  
+  lifecycle:
+    timeout-per-shutdown-phase: 120s
+  
+  data:
+    redis:
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+  
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: America/Sao_Paulo
+
+server:
+  port: 8080
+  shutdown: graceful
+  servlet:
+    context-path: /fidc-auth
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      base-path: /public/actuator
+      exposure:
+        include: health,info,metrics,prometheus
+      cors:
+        allowed-origins: "*"
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# OpenAPI/Swagger
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+    try-it-out-enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.banco.fidc.auth: INFO
+    org.springframework.web: WARN

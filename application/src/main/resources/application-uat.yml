@@ -1,0 +1,43 @@
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+
+aws:
+  region: ${AWS_REGION}
+  secret-manager:
+    jwt:
+      name: ${JWT_SECRET_NAME}
+
+external-apis:
+  user-management:
+    base-url: ${USER_MANAGEMENT_URL}
+  fidc-permission:
+    base-url: ${FIDC_PERMISSION_URL}
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: ${FEIGN_CONNECT_TIMEOUT}
+        read-timeout: ${FEIGN_READ_TIMEOUT}
+        logger-level: basic
+
+properties:
+  session:
+    ttl-minutes: ${SESSION_TTL_MINUTES}
+    cleanup-interval-minutes: ${SESSION_CLEANUP_INTERVAL_MINUTES}

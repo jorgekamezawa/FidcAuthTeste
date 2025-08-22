@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property name="LOG_PATTERN_LOCAL" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] [%X{correlationId:-}] %cyan(%logger{36}) - %msg%n%xException{10}"/>
+
+    <springProfile name="local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${LOG_PATTERN_LOCAL}</pattern>
+            </encoder>
+        </appender>
+
+        <root level="${logging.level.root:-INFO}">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <timeZone>America/Sao_Paulo</timeZone>
+                    </timestamp>
+                    <logLevel/>
+                    <threadName/>
+                    <mdc/>
+                    <loggerName>
+                        <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+                    </loggerName>
+                    <message/>
+                    <stackTrace>
+                        <throwableConverter class="net.logstash.logback.stacktrace.ShorteningThrowableConverter">
+                            <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                            <shortenedClassNameLength>36</shortenedClassNameLength>
+                            <rootCauseFirst>true</rootCauseFirst>
+                        </throwableConverter>
+                    </stackTrace>
+                    <pattern>
+                        <pattern>
+                            {
+                            "application": "${SPRING_APPLICATION_NAME:-fidc-auth}",
+                            "environment": "${SPRING_PROFILES_ACTIVE:-default}",
+                            "version": "${project.version:-0.0.1-SNAPSHOT}"
+                            }
+                        </pattern>
+                    </pattern>
+                </providers>
+            </encoder>
+        </appender>
+
+        <appender name="CONSOLE_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+            <queueSize>512</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+            <appender-ref ref="CONSOLE"/>
+        </appender>
+
+        <root level="${logging.level.root:-INFO}">
+            <appender-ref ref="CONSOLE_ASYNC"/>
+        </root>
+    </springProfile>
+</configuration>

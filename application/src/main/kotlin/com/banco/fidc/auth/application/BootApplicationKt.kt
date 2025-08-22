@@ -7,9 +7,9 @@ import org.springframework.context.annotation.ComponentScan
 
 @SpringBootApplication
 @EnableFeignClients(basePackages = ["com.banco.fidc.auth.external.*"])
-@ComponentScan("com.banco.auth.password.*")
-class BootApplicationKt
+@ComponentScan("com.banco.fidc.auth.*")
+class BootApplication
 
 fun main(args: Array<String>) {
-	runApplication<BootApplicationKt>(*args)
+	runApplication<BootApplication>(*args)
 }

@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fidc-auth-postgres
+    environment:
+      POSTGRES_DB: fidc_auth_db
+      POSTGRES_USER: fidc_auth_user
+      POSTGRES_PASSWORD: senha123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: fidc-auth-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - dev-network
+
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: fidc-auth-localstack
+    environment:
+      SERVICES: secretsmanager
+      AWS_DEFAULT_REGION: us-east-1
+      EDGE_PORT: 4566
+    ports:
+      - "4566:4566"
+    volumes:
+      - "./docker/localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+    networks:
+      - dev-network
+
+volumes:
+  postgres_data:
+
+networks:
+  dev-network:
+    driver: bridge
