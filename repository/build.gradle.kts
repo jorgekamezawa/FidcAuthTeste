@@ -11,4 +11,7 @@ dependencies {
     // JPA & Database
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("org.postgresql:postgresql")
+    
+    // Test Database
+    testRuntimeOnly("com.h2database:h2")
 }

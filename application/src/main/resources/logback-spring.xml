@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <property name="LOG_PATTERN_LOCAL" 
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] [%X{correlationId:-}] %cyan(%logger{36}) - %msg%n%xException{10}"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] [%X{correlationId:-}] %cyan(%logger{36}) - %msg%n"/>
 
-    <springProfile name="local">
+    <springProfile name="local,test">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <pattern>${LOG_PATTERN_LOCAL}</pattern>
@@ -15,7 +15,7 @@
         </root>
     </springProfile>
 
-    <springProfile name="!local">
+    <springProfile name="!local &amp; !test">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
                 <providers>
@@ -29,13 +29,7 @@
                         <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
                     </loggerName>
                     <message/>
-                    <stackTrace>
-                        <throwableConverter class="net.logstash.logback.stacktrace.ShorteningThrowableConverter">
-                            <maxDepthPerThrowable>30</maxDepthPerThrowable>
-                            <shortenedClassNameLength>36</shortenedClassNameLength>
-                            <rootCauseFirst>true</rootCauseFirst>
-                        </throwableConverter>
-                    </stackTrace>
+                    <stackTrace/>
                     <pattern>
                         <pattern>
                             {
