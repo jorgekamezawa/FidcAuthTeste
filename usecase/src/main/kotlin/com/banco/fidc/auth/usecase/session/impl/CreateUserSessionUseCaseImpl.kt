@@ -197,8 +197,8 @@ class CreateUserSessionUseCaseImpl(
             sessionId = session.sessionId,
             ipAddress = ipAddress,
             userAgent = input.userAgent,
-            latitude = input.latitude.toBigDecimalOrNull(),
-            longitude = input.longitude.toBigDecimalOrNull(),
+            latitude = input.latitude.toDoubleOrNull(),
+            longitude = input.longitude.toDoubleOrNull(),
             locationAccuracy = input.locationAccuracy.toIntOrNull(),
             locationTimestamp = java.time.LocalDateTime.parse(input.locationTimestamp)
         )

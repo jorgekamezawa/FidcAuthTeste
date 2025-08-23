@@ -2,7 +2,6 @@ package com.banco.fidc.auth.repository.jpa.session.entity
 
 import com.banco.fidc.auth.domain.session.entity.SessionAccessHistory
 import jakarta.persistence.*
-import java.math.BigDecimal
 import java.net.InetAddress
 import java.time.LocalDateTime
 import java.util.UUID
@@ -42,11 +41,11 @@ class SessionAccessHistoryJpaEntity(
     @Column(name = "user_agent", nullable = false, columnDefinition = "TEXT")
     var userAgent: String,
     
-    @Column(name = "latitude", precision = 10, scale = 8)
-    var latitude: BigDecimal?,
+    @Column(name = "latitude")
+    var latitude: Double?,
     
-    @Column(name = "longitude", precision = 11, scale = 8)
-    var longitude: BigDecimal?,
+    @Column(name = "longitude")
+    var longitude: Double?,
     
     @Column(name = "location_accuracy")
     var locationAccuracy: Int?,

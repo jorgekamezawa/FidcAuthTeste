@@ -2,7 +2,6 @@ package com.banco.fidc.auth.domain.session.entity
 
 import com.banco.fidc.auth.shared.exception.SessionValidationException
 import com.banco.fidc.auth.shared.constants.SessionConstants
-import java.math.BigDecimal
 import java.net.InetAddress
 import java.time.LocalDateTime
 import java.util.UUID
@@ -15,8 +14,8 @@ class SessionAccessHistory private constructor(
     private var _occurredAt: LocalDateTime,
     private var _ipAddress: InetAddress?,
     private var _userAgent: String,
-    private var _latitude: BigDecimal?,
-    private var _longitude: BigDecimal?,
+    private var _latitude: Double?,
+    private var _longitude: Double?,
     private var _locationAccuracy: Int?,
     private var _locationTimestamp: LocalDateTime?
 ) {
@@ -27,8 +26,8 @@ class SessionAccessHistory private constructor(
     val occurredAt: LocalDateTime get() = _occurredAt
     val ipAddress: InetAddress? get() = _ipAddress
     val userAgent: String get() = _userAgent
-    val latitude: BigDecimal? get() = _latitude
-    val longitude: BigDecimal? get() = _longitude
+    val latitude: Double? get() = _latitude
+    val longitude: Double? get() = _longitude
     val locationAccuracy: Int? get() = _locationAccuracy
     val locationTimestamp: LocalDateTime? get() = _locationTimestamp
     
@@ -38,8 +37,8 @@ class SessionAccessHistory private constructor(
             sessionId: UUID,
             ipAddress: InetAddress?,
             userAgent: String,
-            latitude: BigDecimal?,
-            longitude: BigDecimal?,
+            latitude: Double?,
+            longitude: Double?,
             locationAccuracy: Int?,
             locationTimestamp: LocalDateTime?
         ): SessionAccessHistory {
@@ -72,8 +71,8 @@ class SessionAccessHistory private constructor(
             occurredAt: LocalDateTime,
             ipAddress: InetAddress?,
             userAgent: String,
-            latitude: BigDecimal?,
-            longitude: BigDecimal?,
+            latitude: Double?,
+            longitude: Double?,
             locationAccuracy: Int?,
             locationTimestamp: LocalDateTime?
         ): SessionAccessHistory {
@@ -117,8 +116,8 @@ class SessionAccessHistory private constructor(
         }
         
         private fun validateLocationData(
-            latitude: BigDecimal?,
-            longitude: BigDecimal?,
+            latitude: Double?,
+            longitude: Double?,
             locationAccuracy: Int?
         ) {
             // Se latitude ou longitude forem fornecidas, ambas devem estar presentes
@@ -130,14 +129,14 @@ class SessionAccessHistory private constructor(
             
             // Validar range de latitude
             latitude?.let {
-                if (it < BigDecimal("-90") || it > BigDecimal("90")) {
+                if (it < -90.0 || it > 90.0) {
                     throw SessionValidationException("Latitude deve estar entre -90 e 90 graus")
                 }
             }
             
             // Validar range de longitude
             longitude?.let {
-                if (it < BigDecimal("-180") || it > BigDecimal("180")) {
+                if (it < -180.0 || it > 180.0) {
                     throw SessionValidationException("Longitude deve estar entre -180 e 180 graus")
                 }
             }
