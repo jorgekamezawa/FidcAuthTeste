@@ -35,9 +35,20 @@ feign:
       default:
         connect-timeout: ${FEIGN_CONNECT_TIMEOUT:5000}
         read-timeout: ${FEIGN_READ_TIMEOUT:10000}
+        retry-attempts: ${FEIGN_RETRY_ATTEMPTS:3}
         logger-level: basic
+
+# JWT configuration
+jwt:
+  fallback-secret: ${JWT_FALLBACK_SECRET:dev-fallback-secret-key}
+
+# Security configuration
+app:
+  security:
+    allow-localhost: ${ALLOW_LOCALHOST:true}
 
 properties:
   session:
     ttl-minutes: ${SESSION_TTL_MINUTES:30}
     cleanup-interval-minutes: ${SESSION_CLEANUP_INTERVAL_MINUTES:5}
+    secret-length: ${SESSION_SECRET_LENGTH:36}

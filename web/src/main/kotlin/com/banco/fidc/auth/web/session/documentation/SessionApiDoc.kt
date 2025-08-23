@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 
@@ -120,6 +121,8 @@ interface SessionApiDoc {
         @RequestHeader("location-timestamp") locationTimestamp: String,
         
         @Parameter(description = "Tracking correlation ID", required = false)
-        @RequestHeader("x-correlation-id", required = false) correlationId: String?
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        
+        httpRequest: HttpServletRequest
     ): CreateUserSessionResponse
 }

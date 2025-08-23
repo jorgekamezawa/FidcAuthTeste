@@ -37,6 +37,16 @@ feign:
       default:
         connect-timeout: 1000
         read-timeout: 2000
+        retry-attempts: 1
+
+# JWT configuration
+jwt:
+  fallback-secret: test-fallback-secret-key
+
+# Security configuration - TESTE: localhost HABILITADO
+app:
+  security:
+    allow-localhost: true
 
 properties:
   session:

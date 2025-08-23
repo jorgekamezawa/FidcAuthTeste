@@ -45,6 +45,11 @@ feign:
 jwt:
   fallback-secret: local-fallback-key-for-development-only
 
+# Security configuration
+app:
+  security:
+    allow-localhost: true
+
 # Custom properties - hardcoded values
 properties:
   session:

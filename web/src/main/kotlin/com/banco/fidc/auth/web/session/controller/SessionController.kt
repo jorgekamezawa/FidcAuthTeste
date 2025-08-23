@@ -1,6 +1,7 @@
 package com.banco.fidc.auth.web.session.controller
 
 import com.banco.fidc.auth.usecase.session.CreateUserSessionUseCase
+import com.banco.fidc.auth.web.common.extension.getClientIp
 import com.banco.fidc.auth.web.session.documentation.SessionApiDoc
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.request.toInput
@@ -32,7 +33,8 @@ class SessionController(
         @RequestHeader("longitude") longitude: String,
         @RequestHeader("location-accuracy") locationAccuracy: String,
         @RequestHeader("location-timestamp") locationTimestamp: String,
-        @RequestHeader("x-correlation-id", required = false) correlationId: String?
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        httpRequest: HttpServletRequest
     ): CreateUserSessionResponse {
         val finalCorrelationId = correlationId ?: "not-provided"
         logger.info(
@@ -49,7 +51,7 @@ class SessionController(
         require(locationAccuracy.isNotBlank()) { "Header 'location-accuracy' cannot be empty" }
         require(locationTimestamp.isNotBlank()) { "Header 'location-timestamp' cannot be empty" }
 
-        val clientIpAddress = getClientIpAddress()
+        val clientIpAddress = httpRequest.getClientIp()
         val input = request.toInput(
             partner = partner,
             userAgent = userAgent,
@@ -69,8 +71,4 @@ class SessionController(
         return response
     }
 
-    private fun getClientIpAddress(): String {
-        // For now, return a default value - this could be enhanced to get real client IP
-        return "127.0.0.1"
-    }
 }
