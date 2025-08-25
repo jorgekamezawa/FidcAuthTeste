@@ -146,18 +146,10 @@
 * **Manter TTL:** Preservar tempo de expiração original da sessão
 * **Se erro ao salvar:** Retornar erro 500 "Erro interno do servidor"
 
-### 7. Geração de Novo AccessToken
-* **Manter sessionSecret:** Usar o mesmo sessionSecret da sessão (não gera novo)
-* **Assinar JWT:** Com sessionSecret existente da sessão
-* **Claims:**
-  ```json
-  {
-    "sessionId": "550e8400-e29b-41d4-a716-446655440000",
-    "exp": 1692360000
-  }
-  ```
-* **Algoritmo:** HMAC-SHA256
-* **TTL:** Mesma expiração da sessão Redis
+### 7. Reutilização do AccessToken
+* **Manter AccessToken original:** Usar o mesmo AccessToken recebido na requisição
+* **Não gerar novo token:** Token atual já foi validado e ainda é válido
+* **Preservar expiração:** Manter a mesma expiração do token original
 
 ### 8. Resposta Final
 * **Retornar sessão completa:** userInfo, fund, relationshipList, relationshipSelected, permissions, accessToken

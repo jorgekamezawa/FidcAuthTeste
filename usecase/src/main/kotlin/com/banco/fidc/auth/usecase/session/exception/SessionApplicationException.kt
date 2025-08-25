@@ -29,3 +29,7 @@ class SessionProcessingException(
     message: String,
     cause: Throwable? = null
 ) : SessionApplicationException(message, cause)
+
+class SessionNotFoundException(
+    message: String
+) : SessionApplicationException(message)

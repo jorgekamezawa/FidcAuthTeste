@@ -53,6 +53,27 @@ class JwtSecretServiceImpl(
         }
     }
 
+    override fun validateJwtTokenWithSecret(token: String, secret: String): Map<String, Any> {
+        logger.debug("Validating JWT token with specific secret")
+        
+        return try {
+            val key = Keys.hmacShaKeyFor(secret.toByteArray())
+            
+            val claims = Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .payload
+            
+            logger.debug("JWT token validated successfully with specific secret")
+            claims.toMap()
+            
+        } catch (e: Exception) {
+            logger.error("Error validating JWT token with specific secret: ${e.message}")
+            throw JwtSecretException("Invalid JWT token", e)
+        }
+    }
+
     override fun generateAccessToken(sessionId: String, sessionSecret: String, expirationSeconds: Long): String {
         logger.debug("Generating access token for sessionId: $sessionId")
         

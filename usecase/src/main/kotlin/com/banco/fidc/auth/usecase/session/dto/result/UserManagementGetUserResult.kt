@@ -1,8 +1,8 @@
 package com.banco.fidc.auth.usecase.session.dto.result
 
-import com.banco.fidc.auth.usecase.session.dto.output.UserInfoData
-import com.banco.fidc.auth.usecase.session.dto.output.FundData
-import com.banco.fidc.auth.usecase.session.dto.output.RelationshipData
+import com.banco.fidc.auth.usecase.session.dto.common.UserInfoData
+import com.banco.fidc.auth.usecase.session.dto.common.FundData
+import com.banco.fidc.auth.usecase.session.dto.common.RelationshipData
 import java.time.LocalDate
 
 data class UserManagementGetUserResult(

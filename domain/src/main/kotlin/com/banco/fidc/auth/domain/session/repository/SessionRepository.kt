@@ -7,6 +7,8 @@ import java.util.UUID
 interface SessionRepository {
     fun save(session: Session): Session
     
+    fun update(session: Session): Session
+    
     fun findBySessionId(sessionId: UUID): Session?
     
     fun findByCpfAndPartner(cpf: String, partner: String): Session?

@@ -52,6 +52,41 @@ class SessionRepositoryImpl(
         }
     }
 
+    override fun update(session: Session): Session {
+        val key = generateSessionKey(session.sessionId)
+        val redisEntity = session.toRedisEntity()
+        
+        logger.debug("Updating session in Redis: key=$key")
+        
+        try {
+            // Buscar TTL atual
+            val currentTtl = redisTemplate.getExpire(key, TimeUnit.MILLISECONDS)
+            
+            // Atualizar dados
+            redisTemplate.opsForValue().set(key, redisEntity)
+            
+            // Restaurar TTL original se ainda existir
+            if (currentTtl > 0) {
+                redisTemplate.expire(key, currentTtl, TimeUnit.MILLISECONDS)
+                logger.debug("Session updated preserving TTL: ${currentTtl}ms")
+            } else {
+                // Fallback para TTL padrão se não conseguir obter TTL atual
+                redisTemplate.expire(key, DEFAULT_TTL_MINUTES, TimeUnit.MINUTES)
+                logger.warn("Could not preserve TTL, using default: ${DEFAULT_TTL_MINUTES}min")
+            }
+            
+            logger.debug("Session updated in Redis successfully: sessionId=${session.sessionId}")
+            return session
+            
+        } catch (e: Exception) {
+            logger.error("Error updating session in Redis: key=$key", e)
+            throw RedisRepositoryException(
+                "Failed to update session in Redis",
+                e
+            )
+        }
+    }
+
     override fun findBySessionId(sessionId: UUID): Session? {
         val key = generateSessionKey(sessionId)
         

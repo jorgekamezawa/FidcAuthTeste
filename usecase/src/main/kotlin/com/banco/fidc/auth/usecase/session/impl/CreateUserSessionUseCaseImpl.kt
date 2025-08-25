@@ -54,7 +54,7 @@ class CreateUserSessionUseCaseImpl(
             
             // 2. Validar e extrair CPF do JWT
             val jwtClaims = jwtSecretService.validateJwtToken(input.signedData)
-            val cpf = sessionValidationService.validateJwtClaims(jwtClaims)
+            val cpf = sessionValidationService.validateAndExtractCpfFromJwt(jwtClaims)
             
             // 3. Invalidar sessão anterior se existir
             invalidatePreviousSession(cpf, input.partner)
