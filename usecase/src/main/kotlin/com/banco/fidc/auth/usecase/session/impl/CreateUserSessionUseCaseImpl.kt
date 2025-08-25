@@ -3,6 +3,7 @@ package com.banco.fidc.auth.usecase.session.impl
 import com.banco.fidc.auth.domain.session.entity.Session
 import com.banco.fidc.auth.domain.session.entity.SessionAccessHistory
 import com.banco.fidc.auth.domain.session.entity.UserSessionControl
+import com.banco.fidc.auth.domain.session.enum.SessionChannelEnum
 import com.banco.fidc.auth.domain.session.repository.SessionRepository
 import com.banco.fidc.auth.domain.session.repository.UserSessionControlRepository
 import com.banco.fidc.auth.domain.session.repository.SessionAccessHistoryRepository
@@ -81,7 +82,7 @@ class CreateUserSessionUseCaseImpl(
             val ttlMinutes = sessionConfigProvider.getTtlMinutes()
             
             // 7. Criar entidades de domínio
-            val sessionChannelEnum = com.banco.fidc.auth.domain.session.enum.SessionChannelEnum.valueOf(input.channel)
+            val sessionChannelEnum = SessionChannelEnum.valueOf(input.channel)
             
             val session = Session.create(
                 partner = input.partner,
