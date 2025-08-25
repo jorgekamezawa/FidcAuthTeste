@@ -758,4 +758,8 @@ class RedisHealthIndicator(
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.0.0: Camada de persistência com suporte para JPA/PostgreSQL e Redis, separação clara de entities
+
+#### v1.0.0
+- Versão inicial do PERSISTENCE-LAYER
+- Implementação de repositories com JPA e Redis
+- Padrões para mapeamento entre entidades de domínio e persistência

@@ -419,7 +419,10 @@ interface [Nome]ApiDoc {
         
         [SE TIVER HEADERS OPCIONAIS]
         @Parameter(description = "Tracking ID", required = false)
-        @RequestHeader("x-correlation-id", required = false) correlationId: String?
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        
+        [SE PRECISAR DE IP/DADOS DA REQUEST]
+        @Parameter(hidden = true) httpRequest: HttpServletRequest
     ): [Ação][Recurso]Response
 }
 ```
@@ -452,21 +455,30 @@ class [Nome]Controller(
         [SE TIVER HEADERS OBRIGATÓRIOS]
         @RequestHeader("[header-name]") [headerName]: String,
         [SE TIVER HEADERS OPCIONAIS]
-        @RequestHeader("x-correlation-id", required = false) correlationId: String?
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        httpRequest: HttpServletRequest
     ): [Ação][Recurso]Response {
+        val finalCorrelationId = correlationId ?: "not-provided"
         logger.info(
-            "Received [ação] request: [headerName]=${[headerName]}, correlationId=${correlationId ?: "not-provided"}"
+            "Received [ação] request: [headerName]=${[headerName]}, correlationId=${finalCorrelationId}"
         )
 
         [SE TIVER HEADERS OBRIGATÓRIOS]
         // Additional validation - Spring doesn't validate empty strings
         require([headerName].isNotBlank()) { "Header '[header-name]' cannot be empty" }
 
-        val input = request.toInput([SE HEADER FAZ PARTE DO INPUT][headerName])
+        [SE PRECISAR IP DO CLIENTE]
+        val clientIpAddress = httpRequest.getClientIp()
+        
+        val input = request.toInput(
+            [SE HEADER FAZ PARTE DO INPUT][headerName] = [headerName],
+            [SE PRECISAR CORRELATION ID]correlationId = finalCorrelationId,
+            [SE PRECISAR IP]clientIpAddress = clientIpAddress
+        )
         val output = [ação][Recurso]UseCase.execute(input)
         val response = output.toResponse()
 
-        logger.info("[Ação] completed successfully: [log relevante sem dados sensíveis]")
+        logger.info("[Ação] completed successfully: correlationId=${finalCorrelationId}")
         return response
     }
 }
@@ -706,4 +718,8 @@ class [Contexto]ExceptionHandler {
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.0.0: Camada Presentation com controllers finos, Swagger separado e tratamento de exceções
+
+#### v1.0.0
+- Versão inicial do PRESENTATION-LAYER
+- Controllers REST com documentação Swagger automatizada
+- Exception handlers globais e validação de requests

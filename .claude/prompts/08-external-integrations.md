@@ -345,20 +345,25 @@ import org.springframework.web.bind.annotation.*
 
 @FeignClient(
     name = "[sistema-kebab]",
-    url = "\${external-apis.[sistema-kebab].base-url}"
+    url = "\${external-apis.[sistema-kebab].base-url}",
+    configuration = [FeignBaseConfig::class]
 )
 interface [Sistema]FeignClient {
 
     @GetMapping("/api/v1/[recurso]/{id}")
     fun get[Recurso](
         @PathVariable id: String,
-        @RequestHeader("Authorization") token: String
+        [SE PRECISAR HEADERS]
+        @RequestHeader("Authorization") token: String,
+        @RequestHeader("x-correlation-id") correlationId: String
     ): [Recurso]Response?
 
     @PostMapping("/api/v1/[recurso]")
     fun create[Recurso](
         @RequestBody request: Create[Recurso]Request,
-        @RequestHeader("Authorization") token: String
+        [SE PRECISAR HEADERS]
+        @RequestHeader("Authorization") token: String,
+        @RequestHeader("x-correlation-id") correlationId: String
     ): Create[Recurso]Response
 
     [OUTROS ENDPOINTS]
@@ -901,4 +906,8 @@ class [Contexto]StorageException(
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.0.0: Integrações externas com Feign, AWS services, LDAP e mensageria, organizadas por contexto
+
+#### v1.0.0
+- Versão inicial do EXTERNAL-INTEGRATIONS
+- Clientes Feign para integrações com APIs externas
+- Configurações AWS, tratamento de erros e retry policies

@@ -964,4 +964,8 @@ Precisa de algum ajuste na documentação antes de prosseguir?"
 <!-- Registro de melhorias identificadas durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.5.0: Adicionado princípio das 3 soluções, reforço do output final, verificação de URLs e padrão de documentação de fluxos
+
+#### v1.0.0
+- Versão inicial do PROJECT-CONTEXT
+- Estabelece metodologia colaborativa para definição de projetos
+- Define templates para mapeamento de requisitos e especificações de domínio

@@ -6,12 +6,13 @@ Este sistema de prompts foi desenvolvido para padronizar e acelerar o desenvolvi
 
 ### Stack Padrão
 - **Linguagem**: Kotlin 1.9.25
-- **Framework**: Spring Boot 3.4.x
+- **Framework**: Spring Boot 3.4.8
 - **JVM**: Java 21
 - **Arquitetura**: Clean Architecture com 7 módulos
 - **Banco**: PostgreSQL (principal), Redis (cache)
-- **Cloud**: AWS
+- **Cloud**: AWS (com LocalStack para local)
 - **Build**: Gradle com Kotlin DSL
+- **Observabilidade**: Micrometer + Prometheus
 
 ## 🎯 Como Funciona
 
@@ -108,7 +109,7 @@ Como proceder?"
 cd meu-projeto
 claude
 "Implemente a camada de domínio seguindo domain-layer.md,
-contexto específico em @prompt-engineering/contexto-projeto.md"
+contexto específico em @prompt-docs/contexto-projeto.md"
 ```
 
 #### Passo 3: Verificação e Iteração
@@ -251,8 +252,8 @@ Acesse: https://claude.ai/project/[universal-id]
 - [Spring Boot 3.4.x Docs](https://spring.io/projects/spring-boot)
 
 ### Versioning
-- **Sistema**: v1.0.0
-- **Última atualização**: [Data atual]
+- **Sistema**: v1.3.0
+- **Última atualização**: 2025-01-23
 - **Prompts compatíveis**: v1.x.x
 
 ---

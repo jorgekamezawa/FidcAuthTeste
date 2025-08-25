@@ -118,7 +118,7 @@ plugins {
     kotlin("plugin.spring") version "1.9.25"
     [SE USAR JPA]
     kotlin("plugin.jpa") version "1.9.25"
-    id("org.springframework.boot") version "3.4.7"
+    id("org.springframework.boot") version "3.4.8"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -147,13 +147,14 @@ subprojects {
 
     [SE USAR SPRING CLOUD]
     extra["springCloudVersion"] = "2024.0.2"
+    extra["awsSdkVersion"] = "2.20.26"
     
     dependencyManagement {
         imports {
             [SE USAR SPRING CLOUD]
             mavenBom("org.springframework.cloud:spring-cloud-dependencies:${property("springCloudVersion")}")
             [SE USAR AWS SDK]
-            mavenBom("software.amazon.awssdk:bom:2.20.26")
+            mavenBom("software.amazon.awssdk:bom:${property("awsSdkVersion")}")
         }
     }
 
@@ -478,6 +479,8 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
     time-zone: America/Sao_Paulo
+    serialization:
+      write-dates-as-timestamps: false
 
 server:
   port: 8080
@@ -1138,4 +1141,8 @@ observability:
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.2.0: Ajustes de nomenclatura (artifact/package), BootApplication padrão, melhor organização de módulos
+
+#### v1.0.0
+- Versão inicial do INITIAL-SETUP
+- Configuração completa de estrutura Gradle multimodule
+- Templates para Docker, Helm charts e configurações Spring Boot

@@ -309,6 +309,26 @@ fun [Sistema][Operação]Result.to[Entidade]Data(): [Entidade]Data {
     )
 }
 
+// Mapper para múltiplos dados - extension function
+fun [Sistema][Operação]Result.toOutputData(): Triple<[Tipo1]Data, [Tipo2]Data, List<[Tipo3]Data>> {
+    return Triple(
+        [Tipo1]Data(
+            [campo] = this.[campo1],
+            [outrosCampos] = this.[dados1]
+        ),
+        [Tipo2]Data(
+            [campo] = this.[campo2],
+            [outrosCampos] = this.[dados2]
+        ),
+        this.[lista].map {
+            [Tipo3]Data(
+                [campo] = it.[campo],
+                [outrosCampos] = it.[dados]
+            )
+        }
+    )
+}
+
 // Mapper complexo em classe separada (raro)
 @Component
 class [Contexto]ComplexMapper {
@@ -512,4 +532,8 @@ class [Contexto]ProcessingException(
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.0.0: Use cases como orquestradores, DTOs organizados, application services com lógica específica
+
+#### v1.0.0
+- Versão inicial do APPLICATION-LAYER
+- Implementação de use cases e DTOs internos
+- Padrões para application services e config providers

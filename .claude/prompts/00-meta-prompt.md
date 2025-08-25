@@ -256,4 +256,8 @@ Aguardando o prompt PROJECT-CONTEXT para começarmos!
 <!-- Seção para registro de melhorias identificadas durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.1.0: Resposta inicial padronizada - IA apenas confirma entendimento sem fazer perguntas
+
+#### v1.0.0
+- Versão inicial do META-PROMPT
+- Define princípios fundamentais do sistema de prompt engineering
+- Estabelece padrões de Clean Architecture pragmática para Kotlin + Spring Boot

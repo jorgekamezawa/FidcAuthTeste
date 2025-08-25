@@ -2,7 +2,7 @@
 
 ---
 id: domain-layer
-version: 1.2.0
+version: 1.0.0
 requires: [meta-prompt, project-context, initial-setup, infrastructure-base]
 provides: [domain-entities, domain-services, repository-interfaces, business-rules]
 optional: false
@@ -347,6 +347,19 @@ class [Entidade] private constructor(
                "isDeleted=$isDeleted)"
     }
 }
+
+// Value Objects como data classes - baseado no projeto atual
+data class [Contexto]Info(
+    val [campo]: String,
+    val [campoOpcional]: String?,
+    val [campoData]: LocalDate,
+    val [campoNumerico]: Int
+) {
+    init {
+        require([campo].isNotBlank()) { "[Campo] não pode estar vazio" }
+        require([campoNumerico] > 0) { "[Campo] deve ser positivo" }
+    }
+}
 ```
 
 #### Template para Banco NÃO-RELACIONAL (Apenas UUID)
@@ -601,4 +614,8 @@ class [Contexto]DomainService(
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.2.0: Distinção clara entre soft delete e ativo/inativo, removido restore(), soft delete é definitivo
+
+#### v1.0.0
+- Versão inicial do DOMAIN-LAYER
+- Implementação de entidades, value objects e interfaces de repositório
+- Padrões para domain services e regras de negócio

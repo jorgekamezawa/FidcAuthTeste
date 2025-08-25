@@ -163,13 +163,18 @@ spring:
       maximum-pool-size: ${DB_POOL_SIZE:10}
       minimum-idle: ${DB_MIN_IDLE:5}
       connection-timeout: ${DB_CONN_TIMEOUT:30000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_MAX_LIFETIME:1800000}
   jpa:
-    show-sql: false
+    show-sql: ${JPA_SHOW_SQL:false}
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
         default_schema: ${DB_SCHEMA:[nome_underscore]}
+        format_sql: ${JPA_FORMAT_SQL:false}
+        jdbc:
+          time_zone: America/Sao_Paulo
 
 # Redis
 [SE TIVER REDIS]
@@ -179,17 +184,22 @@ spring:
       host: ${REDIS_HOST:redis-dev.internal}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
-      timeout: 2000ms
+      timeout: ${REDIS_TIMEOUT:2000ms}
+      database: ${REDIS_DATABASE:0}
       lettuce:
         pool:
-          max-active: ${REDIS_POOL_MAX:8}
+          max-active: ${REDIS_POOL_MAX_ACTIVE:8}
           max-idle: ${REDIS_POOL_MAX_IDLE:8}
           min-idle: ${REDIS_POOL_MIN_IDLE:0}
+          time-between-eviction-runs: ${REDIS_POOL_TIME_BETWEEN_EVICTION_RUNS:30s}
 
 # AWS
 [SE TIVER AWS]
 aws:
   region: ${AWS_REGION:us-east-1}
+  local-stack:
+    enable: ${AWS_LOCALSTACK_ENABLE:true}
+    endpoint: ${AWS_LOCALSTACK_ENDPOINT:http://localhost:4566}
   [SE TIVER SQS]
   sqs:
     [nome-fila]:
@@ -560,4 +570,8 @@ management:
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
-- v1.1.0: Adicionada confirmação obrigatória antes de gerar código
+
+#### v1.0.0
+- Versão inicial do INFRASTRUCTURE-BASE
+- Configurações de properties por ambiente (local, dev, uat, prd)
+- Integração com PostgreSQL, Redis, AWS e observabilidade
