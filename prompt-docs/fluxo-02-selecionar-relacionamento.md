@@ -10,6 +10,7 @@
 
 ### Headers Obrigatórios:
 - `authorization` (Bearer {accessToken} do FLUXO 1)
+- `relationshipId` (ID do relacionamento a ser selecionado)
 
 ### Headers Opcionais:
 - `x-correlation-id` (gerado automaticamente se ausente)
@@ -20,10 +21,9 @@
 
 ### Request Body:
 ```json
-{
-  "relationshipId": "REL001"
-}
+{}
 ```
+*Body vazio - relationshipId vem via header*
 
 ### Response (Sucesso):
 ```json
@@ -79,13 +79,13 @@
   "timestamp": "2025-08-18T14:45:32",
   "status": 400,
   "error": "Bad Request",
-  "message": "Relacionamento não encontrado na sessão",
+  "message": "Header relationshipId é obrigatório",
   "path": "/sessions/relationship"
 }
 ```
 
 ### Códigos de Erro:
-- **400**: RelationshipId inválido, relacionamento não encontrado na sessão
+- **400**: Header relationshipId ausente, relacionamento não encontrado na sessão
 - **401**: AccessToken inválido, expirado ou malformado
 - **404**: Sessão não encontrada no Redis
 - **429**: Rate limit excedido
@@ -104,8 +104,9 @@
 * **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
 * **Header Authorization:** Verificar presença do Bearer token
 * **Se header ausente:** Retornar erro 401 "Token de acesso obrigatório"
-* **Request Body:** Validar presença e formato do relationshipId
-* **Se relationshipId inválido:** Retornar erro 400 "RelationshipId é obrigatório"
+* **Header relationshipId:** Verificar presença e formato do relationshipId
+* **Se relationshipId ausente:** Retornar erro 400 "Header relationshipId é obrigatório"
+* **Se relationshipId vazio:** Retornar erro 400 "RelationshipId não pode estar vazio"
 
 ### 2. Validação do AccessToken
 * **Extrair AccessToken:** Do header Authorization (Bearer {token})
@@ -124,6 +125,7 @@
 * **Se token expirado:** Retornar erro 401 "Token de acesso expirado"
 
 ### 4. Validação do Relacionamento
+* **Extrair relationshipId:** Do header "relationshipId"
 * **Buscar relacionamento:** Procurar relationshipId na relationshipList da sessão
 * **Se relacionamento não encontrado:** Retornar erro 400 "Relacionamento não encontrado na sessão"
 * **Verificar status:** Relacionamento deve ter status "ACTIVE" (se aplicável)
@@ -237,12 +239,12 @@ data class FidcAuthConfig(
 - **Logs WARN**: Relacionamento sem permissões específicas, fallback para array vazio
 - **Logs ERROR**: Integração FidcPermission falhou, erro ao atualizar sessão no Redis
 - **Logs DEBUG**:
-    - AccessToken validado com sucesso (sem dados sensíveis)
-    - Relacionamento encontrado na sessionList
-    - Permissões específicas retornadas pela integração
-    - Estado da sessão antes e depois da atualização
+  - AccessToken validado com sucesso (sem dados sensíveis)
+  - Relacionamento encontrado na sessionList
+  - Permissões específicas retornadas pela integração
+  - Estado da sessão antes e depois da atualização
 - **Métricas**:
-    - Contador de seleções de relacionamento por partner
-    - Latência da integração FidcPermission
-    - Taxa de relacionamentos selecionados vs total de relacionamentos disponíveis
-    - Contador de permissões específicas vs gerais por relacionamento
+  - Contador de seleções de relacionamento por partner
+  - Latência da integração FidcPermission
+  - Taxa de relacionamentos selecionados vs total de relacionamentos disponíveis
+  - Contador de permissões específicas vs gerais por relacionamento
