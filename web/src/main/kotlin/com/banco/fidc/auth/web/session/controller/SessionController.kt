@@ -2,7 +2,9 @@ package com.banco.fidc.auth.web.session.controller
 
 import com.banco.fidc.auth.usecase.session.CreateUserSessionUseCase
 import com.banco.fidc.auth.usecase.session.SelectRelationshipUseCase
+import com.banco.fidc.auth.usecase.session.EndSessionUseCase
 import com.banco.fidc.auth.usecase.session.dto.input.SelectRelationshipInput
+import com.banco.fidc.auth.usecase.session.dto.input.EndSessionInput
 import com.banco.fidc.auth.web.common.extension.getClientIp
 import com.banco.fidc.auth.web.session.documentation.SessionApiDoc
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
@@ -14,18 +16,21 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.util.UUID
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/v1/sessions")
 class SessionController(
     private val createUserSessionUseCase: CreateUserSessionUseCase,
-    private val selectRelationshipUseCase: SelectRelationshipUseCase
+    private val selectRelationshipUseCase: SelectRelationshipUseCase,
+    private val endSessionUseCase: EndSessionUseCase
 ) : SessionApiDoc {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    @PostMapping("/session")
+    @PostMapping
     @ResponseStatus(HttpStatus.OK)
     override fun createUserSession(
         @Valid @RequestBody request: CreateUserSessionRequest,
@@ -75,7 +80,7 @@ class SessionController(
         return response
     }
 
-    @PatchMapping("/sessions/relationship")
+    @PatchMapping("/relationship")
     @ResponseStatus(HttpStatus.OK)
     override fun selectRelationship(
         @RequestHeader("authorization") authorization: String,
@@ -108,5 +113,33 @@ class SessionController(
 
         logger.info("Relationship selected successfully: relationshipId=${relationshipId}, correlationId=${finalCorrelationId}")
         return response
+    }
+
+    @DeleteMapping
+    override fun endSession(
+        @RequestHeader("Authorization") authorization: String,
+        @RequestHeader("partner") partner: String,
+        @RequestHeader(value = "x-correlation-id", required = false) correlationId: String?,
+        httpRequest: HttpServletRequest
+    ): ResponseEntity<Void> {
+        val finalCorrelationId = correlationId ?: UUID.randomUUID().toString()
+        val userAgent = httpRequest.getHeader("user-agent") ?: ""
+        
+        logger.info(
+            "Received endSession request: partner=${partner}, correlationId=${finalCorrelationId}"
+        )
+
+        val input = EndSessionInput(
+            accessToken = authorization,
+            partner = partner,
+            correlationId = finalCorrelationId,
+            clientIpAddress = httpRequest.getClientIp(),
+            userAgent = userAgent
+        )
+
+        endSessionUseCase.execute(input)
+
+        logger.info("Session ended successfully: correlationId=${finalCorrelationId}")
+        return ResponseEntity.noContent().build()
     }
 }

@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 
@@ -73,7 +74,7 @@ interface SessionApiDoc {
                         "status": 400,
                         "error": "Bad Request",
                         "message": "Invalid JWT token",
-                        "path": "/api/v1/auth/session"
+                        "path": "/v1/sessions"
                     }"""
                 )]
             )]
@@ -185,7 +186,7 @@ interface SessionApiDoc {
                         "status": 400,
                         "error": "Bad Request",
                         "message": "Header relationshipId é obrigatório",
-                        "path": "/api/v1/auth/sessions/relationship"
+                        "path": "/v1/sessions/relationship"
                     }"""
                 )]
             )]
@@ -223,4 +224,147 @@ interface SessionApiDoc {
         
         httpRequest: HttpServletRequest
     ): SelectRelationshipResponse
+
+    @Operation(
+        summary = "End session",
+        description = "Ends the active user session, invalidating the AccessToken and clearing session state. This operation is idempotent."
+    )
+    @ApiResponses(value = [
+        ApiResponse(
+            responseCode = "204",
+            description = "Session ended successfully"
+        ),
+        ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - Missing partner header or malformed token",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Missing partner header",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 400,
+                        "error": "Bad Request",
+                        "message": "Header partner é obrigatório",
+                        "path": "/v1/sessions"
+                    }"""
+                ), ExampleObject(
+                    name = "Malformed token",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 400,
+                        "error": "Bad Request",
+                        "message": "Token de acesso malformado",
+                        "path": "/v1/sessions"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - Invalid token signature or missing Authorization header",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Invalid token",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 401,
+                        "error": "Unauthorized",
+                        "message": "Token de acesso inválido",
+                        "path": "/v1/sessions"
+                    }"""
+                ), ExampleObject(
+                    name = "Missing authorization header",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 401,
+                        "error": "Unauthorized",
+                        "message": "Token de acesso obrigatório",
+                        "path": "/v1/sessions"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - Partner not authorized for this session",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Partner not authorized",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 403,
+                        "error": "Forbidden",
+                        "message": "Partner não autorizado para esta sessão",
+                        "path": "/v1/sessions"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "429",
+            description = "Too Many Requests - Rate limit exceeded",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Rate limit exceeded",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 429,
+                        "error": "Too Many Requests",
+                        "message": "Rate limit excedido",
+                        "path": "/v1/sessions"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "500",
+            description = "Internal Server Error",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Internal error",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 500,
+                        "error": "Internal Server Error",
+                        "message": "Erro interno do servidor",
+                        "path": "/v1/sessions"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "503",
+            description = "Service Unavailable - Redis temporarily unavailable",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Redis unavailable",
+                    value = """{
+                        "timestamp": "2025-08-18T14:45:32",
+                        "status": 503,
+                        "error": "Service Unavailable",
+                        "message": "Serviço temporariamente indisponível",
+                        "path": "/v1/sessions"
+                    }"""
+                )]
+            )]
+        )
+    ])
+    fun endSession(
+        @Parameter(description = "Bearer token obtained from authentication flow", required = true)
+        @RequestHeader("Authorization") authorization: String,
+        
+        @Parameter(description = "Partner identifier (prevcom, caio, etc.)", required = true)
+        @RequestHeader("partner") partner: String,
+        
+        @Parameter(description = "Tracking correlation ID (auto-generated if omitted)", required = false)
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        
+        httpRequest: HttpServletRequest
+    ): ResponseEntity<Void>
 }
