@@ -3,6 +3,7 @@ package com.banco.fidc.auth.web.session.documentation
 import com.banco.fidc.auth.web.common.exception.dto.ErrorResponse
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
+import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -125,4 +126,101 @@ interface SessionApiDoc {
         
         httpRequest: HttpServletRequest
     ): CreateUserSessionResponse
+
+    @Operation(
+        summary = "Select relationship",
+        description = "Selects a specific relationship, fetches contextual permissions and updates session"
+    )
+    @ApiResponses(value = [
+        ApiResponse(
+            responseCode = "200",
+            description = "Relationship selected successfully",
+            content = [Content(
+                schema = Schema(implementation = SelectRelationshipResponse::class),
+                examples = [ExampleObject(
+                    name = "Success",
+                    value = """{
+                        "userInfo": {
+                            "cpf": "123***456-78",
+                            "fullName": "João Silva Santos",
+                            "email": "j***@email.com",
+                            "birthDate": "1985-05-15",
+                            "phoneNumber": "(11) 9****-1234"
+                        },
+                        "fund": {
+                            "id": "fund-123",
+                            "name": "FIDC ABC",
+                            "type": "FIDC"
+                        },
+                        "relationshipList": [
+                            {
+                                "id": "rel-456",
+                                "type": "CEDENTE",
+                                "name": "Empresa XYZ Ltda",
+                                "status": "ACTIVE",
+                                "contractNumber": "CTR-001"
+                            }
+                        ],
+                        "relationshipSelected": {
+                            "id": "rel-456",
+                            "type": "CEDENTE",
+                            "name": "Empresa XYZ Ltda",
+                            "status": "ACTIVE",
+                            "contractNumber": "CTR-001"
+                        },
+                        "permissions": ["VIEW_PLAN_DETAILS", "REQUEST_LOAN"],
+                        "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - Invalid relationship ID or missing headers",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    value = """{
+                        "timestamp": "2025-08-22T14:45:32",
+                        "status": 400,
+                        "error": "Bad Request",
+                        "message": "Header relationshipId é obrigatório",
+                        "path": "/api/v1/auth/sessions/relationship"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - Invalid or expired access token",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "404",
+            description = "Not Found - Session not found or expired",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "429",
+            description = "Too Many Requests - Rate limit exceeded",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "503",
+            description = "Service Unavailable - FidcPermission service temporarily unavailable",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        )
+    ])
+    fun selectRelationship(
+        @Parameter(description = "Bearer token from session creation", required = true)
+        @RequestHeader("authorization") authorization: String,
+        
+        @Parameter(description = "ID of relationship to select", required = true)
+        @RequestHeader("relationshipId") relationshipId: String,
+        
+        @Parameter(description = "Tracking correlation ID", required = false)
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        
+        httpRequest: HttpServletRequest
+    ): SelectRelationshipResponse
 }

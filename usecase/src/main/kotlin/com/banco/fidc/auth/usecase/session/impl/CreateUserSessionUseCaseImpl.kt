@@ -13,7 +13,7 @@ import com.banco.fidc.auth.usecase.session.configprovider.SessionConfigProvider
 import com.banco.fidc.auth.usecase.session.dto.input.CreateUserSessionInput
 import com.banco.fidc.auth.usecase.session.dto.output.CreateUserSessionOutput
 import com.banco.fidc.auth.usecase.session.dto.params.*
-import com.banco.fidc.auth.usecase.session.dto.result.toOutputData
+import com.banco.fidc.auth.usecase.session.dto.result.*
 import com.banco.fidc.auth.usecase.session.exception.*
 import com.banco.fidc.auth.usecase.session.service.*
 import org.slf4j.LoggerFactory
@@ -32,6 +32,7 @@ class CreateUserSessionUseCaseImpl(
     private val jwtSecretService: JwtSecretService,
     private val rateLimitService: RateLimitService,
     private val sessionValidationService: SessionValidationService,
+    private val cryptographyService: CryptographyService,
     private val sessionConfigProvider: SessionConfigProvider
 ) : CreateUserSessionUseCase {
 
@@ -53,8 +54,7 @@ class CreateUserSessionUseCaseImpl(
             )
             
             // 2. Validar e extrair CPF do JWT
-            val jwtClaims = jwtSecretService.validateJwtToken(input.signedData)
-            val cpf = sessionValidationService.validateAndExtractCpfFromJwt(jwtClaims)
+            val cpf = sessionValidationService.extractCpfFromToken(input.signedData)
             
             // 3. Invalidar sessão anterior se existir
             invalidatePreviousSession(cpf, input.partner)
@@ -76,10 +76,9 @@ class CreateUserSessionUseCaseImpl(
                 )
             )
             
-            // 6. Gerar identificadores da sessão
-            val sessionId = UUID.randomUUID()
-            val sessionSecret = sessionValidationService.generateSessionSecret()
+            // 6. Gerar dados necessários para a sessão  
             val ttlMinutes = sessionConfigProvider.getTtlMinutes()
+            val sessionSecret = cryptographyService.generateSecureSessionSecret()
             
             // 7. Criar entidades de domínio
             val sessionChannelEnum = SessionChannelEnum.valueOf(input.channel)
@@ -110,28 +109,28 @@ class CreateUserSessionUseCaseImpl(
                         contractNumber = it.contractNumber
                     )
                 },
-                permissions = permissionsResult.permissions
+                permissions = permissionsResult.permissions,
+                ttlMinutes = ttlMinutes,
+                sessionSecret = sessionSecret
             )
             
             // 8. Persistir sessão atomicamente
             persistSessionAtomically(session, input)
             
-            // 9. Gerar access token
+            // 9. Gerar access token usando dados da entidade
             val accessToken = jwtSecretService.generateAccessToken(
-                sessionId = sessionId.toString(),
-                sessionSecret = sessionSecret,
+                sessionId = session.sessionId.toString(),
+                sessionSecret = session.sessionSecret,
                 expirationSeconds = (ttlMinutes * 60).toLong()
             )
             
             // 10. Preparar resposta
-            val (userInfoData, fundData, relationshipDataList) = userManagementResult.toOutputData()
-            
-            logger.info("Sessão criada com sucesso: sessionId=${sessionId}")
+            logger.info("Sessão criada com sucesso: sessionId=${session.sessionId}")
             
             return CreateUserSessionOutput(
-                userInfo = userInfoData,
-                fund = fundData,
-                relationshipList = relationshipDataList,
+                userInfo = userManagementResult.userInfo.toUserInfoData(),
+                fund = userManagementResult.fund.toFundData(),
+                relationshipList = userManagementResult.relationshipList.map { it.toRelationshipData() },
                 permissions = permissionsResult.permissions,
                 accessToken = accessToken
             )

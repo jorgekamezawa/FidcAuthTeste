@@ -10,15 +10,10 @@ class SessionConfigProviderImpl(
     private val ttlMinutes: Int,
     
     @Value("\${properties.session.cleanup-interval-minutes}")
-    private val cleanupIntervalMinutes: Int,
-    
-    @Value("\${properties.session.secret-length}")
-    private val secretLength: Int
+    private val cleanupIntervalMinutes: Int
 ) : SessionConfigProvider {
     
     override fun getTtlMinutes(): Int = ttlMinutes
     
     override fun getCleanupIntervalMinutes(): Int = cleanupIntervalMinutes
-    
-    override fun getSecretLength(): Int = secretLength
 }

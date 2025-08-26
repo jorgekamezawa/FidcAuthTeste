@@ -24,7 +24,6 @@ class SessionRepositoryImpl(
 
     companion object {
         private const val SESSION_KEY_PREFIX = "session"
-        private const val DEFAULT_TTL_MINUTES = 30L
     }
 
     override fun save(session: Session): Session {
@@ -37,7 +36,7 @@ class SessionRepositoryImpl(
             redisTemplate.opsForValue().set(
                 key, 
                 redisEntity, 
-                DEFAULT_TTL_MINUTES, 
+                session.ttlMinutes.toLong(), 
                 TimeUnit.MINUTES
             )
             logger.debug("Session saved to Redis successfully: sessionId=${session.sessionId}")
@@ -62,22 +61,26 @@ class SessionRepositoryImpl(
             // Buscar TTL atual
             val currentTtl = redisTemplate.getExpire(key, TimeUnit.MILLISECONDS)
             
+            // Validar que a sessão ainda tem TTL válido
+            if (currentTtl <= 0) {
+                logger.error("Cannot update session without valid TTL: sessionId=${session.sessionId}, ttl=$currentTtl")
+                throw RedisRepositoryException(
+                    "Session not found or expired - cannot update session without valid TTL"
+                )
+            }
+            
             // Atualizar dados
             redisTemplate.opsForValue().set(key, redisEntity)
             
-            // Restaurar TTL original se ainda existir
-            if (currentTtl > 0) {
-                redisTemplate.expire(key, currentTtl, TimeUnit.MILLISECONDS)
-                logger.debug("Session updated preserving TTL: ${currentTtl}ms")
-            } else {
-                // Fallback para TTL padrão se não conseguir obter TTL atual
-                redisTemplate.expire(key, DEFAULT_TTL_MINUTES, TimeUnit.MINUTES)
-                logger.warn("Could not preserve TTL, using default: ${DEFAULT_TTL_MINUTES}min")
-            }
+            // Restaurar TTL original
+            redisTemplate.expire(key, currentTtl, TimeUnit.MILLISECONDS)
+            logger.debug("Session updated preserving TTL: ${currentTtl}ms")
             
             logger.debug("Session updated in Redis successfully: sessionId=${session.sessionId}")
             return session
             
+        } catch (e: RedisRepositoryException) {
+            throw e
         } catch (e: Exception) {
             logger.error("Error updating session in Redis: key=$key", e)
             throw RedisRepositoryException(

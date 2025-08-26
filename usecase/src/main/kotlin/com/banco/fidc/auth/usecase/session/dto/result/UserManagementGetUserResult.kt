@@ -33,13 +33,6 @@ data class RelationshipResult(
     val contractNumber: String
 )
 
-fun UserManagementGetUserResult.toOutputData(): Triple<UserInfoData, FundData, List<RelationshipData>> {
-    return Triple(
-        this.userInfo.toUserInfoData(),
-        this.fund.toFundData(),
-        this.relationshipList.map { it.toRelationshipData() }
-    )
-}
 
 fun UserInfoResult.toUserInfoData(): UserInfoData {
     return UserInfoData(

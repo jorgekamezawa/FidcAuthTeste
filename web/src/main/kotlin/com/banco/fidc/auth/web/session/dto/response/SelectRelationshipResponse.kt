@@ -1,32 +1,35 @@
 package com.banco.fidc.auth.web.session.dto.response
 
-import com.banco.fidc.auth.usecase.session.dto.output.CreateUserSessionOutput
+import com.banco.fidc.auth.usecase.session.dto.output.SelectRelationshipOutput
 import com.banco.fidc.auth.web.session.dto.common.UserInfoResponse
 import com.banco.fidc.auth.web.session.dto.common.FundResponse
 import com.banco.fidc.auth.web.session.dto.common.RelationshipResponse
 import io.swagger.v3.oas.annotations.media.Schema
-import java.time.format.DateTimeFormatter
 
-@Schema(description = "Response after creating user session")
-data class CreateUserSessionResponse(
+@Schema(description = "Response after selecting relationship")
+data class SelectRelationshipResponse(
     @Schema(description = "User information")
     val userInfo: UserInfoResponse,
     
-    @Schema(description = "Fund information")
+    @Schema(description = "Fund information") 
     val fund: FundResponse,
     
-    @Schema(description = "User relationships")
+    @Schema(description = "All user relationships")
     val relationshipList: List<RelationshipResponse>,
     
-    @Schema(description = "User permissions")
+    @Schema(description = "Selected relationship")
+    val relationshipSelected: RelationshipResponse,
+    
+    @Schema(description = "Context-specific permissions for selected relationship")
     val permissions: List<String>,
     
-    @Schema(description = "Access token for authenticated requests")
+    @Schema(description = "Same access token from request (reused)")
     val accessToken: String
 )
 
-fun CreateUserSessionOutput.toResponse(): CreateUserSessionResponse {
-    return CreateUserSessionResponse(
+// Extension function para converter Output do usecase para Response da web
+fun SelectRelationshipOutput.toResponse(): SelectRelationshipResponse {
+    return SelectRelationshipResponse(
         userInfo = UserInfoResponse(
             cpf = maskCpf(this.userInfo.cpf),
             fullName = this.userInfo.fullName,
@@ -39,15 +42,22 @@ fun CreateUserSessionOutput.toResponse(): CreateUserSessionResponse {
             name = this.fund.name,
             type = this.fund.type
         ),
-        relationshipList = this.relationshipList.map { rel ->
+        relationshipList = this.relationshipList.map { relationship ->
             RelationshipResponse(
-                id = rel.id,
-                type = rel.type,
-                name = rel.name,
-                status = rel.status,
-                contractNumber = rel.contractNumber
+                id = relationship.id,
+                type = relationship.type,
+                name = relationship.name,
+                status = relationship.status,
+                contractNumber = relationship.contractNumber
             )
         },
+        relationshipSelected = RelationshipResponse(
+            id = this.relationshipSelected.id,
+            type = this.relationshipSelected.type,
+            name = this.relationshipSelected.name,
+            status = this.relationshipSelected.status,
+            contractNumber = this.relationshipSelected.contractNumber
+        ),
         permissions = this.permissions,
         accessToken = this.accessToken
     )

@@ -52,29 +52,28 @@ class SelectRelationshipUseCaseImpl(
             val sessionUuid = try {
                 UUID.fromString(sessionId)
             } catch (e: IllegalArgumentException) {
-                throw SessionValidationException("Token de acesso inválido")
+                throw SessionValidationException("Token de acesso contém sessionId inválido")
             }
 
             // 3. Buscar sessão no Redis
             val session = sessionRepository.findBySessionId(sessionUuid)
                 ?: throw SessionNotFoundException("Sessão não encontrada ou expirada")
 
-            // 4. Validar assinatura do JWT usando sessionSecret da sessão
-            val jwtClaims = jwtSecretService.validateJwtTokenWithSecret(
+            // 4. Validar assinatura e expiração do JWT usando sessionSecret da sessão
+            jwtSecretService.validateJwtTokenWithSecret(
                 input.accessToken,
                 session.sessionSecret
             )
 
-            // 5. Verificar expiração do token
-            sessionValidationService.validateTokenExpiration(jwtClaims)
+            // 5. Buscar e validar relacionamento específico
+            val selectedRelationship = session.relationshipList.find { it.id == input.relationshipId }
+                ?: throw SessionValidationException("Relacionamento não encontrado na sessão")
+            
+            if (selectedRelationship.status != "ACTIVE") {
+                throw SessionValidationException("Relacionamento inativo")
+            }
 
-            // 6. Validar relacionamento
-            sessionValidationService.validateRelationshipExists(session, input.relationshipId)
-
-            // 7. Buscar relacionamento específico
-            val selectedRelationship = session.relationshipList.find { it.id == input.relationshipId }!!
-
-            // 8. Buscar permissões específicas do relacionamento
+            // 6. Buscar permissões específicas do relacionamento
             val permissionsResult = fidcPermissionService.getPermissions(
                 FidcPermissionGetPermissionsParams(
                     partner = session.partner,
@@ -83,16 +82,16 @@ class SelectRelationshipUseCaseImpl(
                 )
             )
 
-            // 9. Atualizar sessão
+            // 7. Atualizar sessão
             session.selectRelationship(selectedRelationship)
             session.updatePermissions(permissionsResult.permissions)
 
-            // 10. Atualizar sessão no Redis (preserva TTL)
+            // 8. Atualizar sessão no Redis (preserva TTL)
             sessionRepository.update(session)
 
             logger.info("Relacionamento selecionado com sucesso: sessionId=${session.sessionId}, relationshipId=${input.relationshipId}")
 
-            // 11. Reutilizar o AccessToken original (já validado)
+            // 9. Reutilizar o AccessToken original (já validado)
             return session.toSelectRelationshipOutput(input.accessToken)
 
         } catch (ex: BusinessException) {

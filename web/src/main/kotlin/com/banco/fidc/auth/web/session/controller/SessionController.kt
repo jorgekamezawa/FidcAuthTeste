@@ -1,11 +1,14 @@
 package com.banco.fidc.auth.web.session.controller
 
 import com.banco.fidc.auth.usecase.session.CreateUserSessionUseCase
+import com.banco.fidc.auth.usecase.session.SelectRelationshipUseCase
+import com.banco.fidc.auth.usecase.session.dto.input.SelectRelationshipInput
 import com.banco.fidc.auth.web.common.extension.getClientIp
 import com.banco.fidc.auth.web.session.documentation.SessionApiDoc
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.request.toInput
 import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
+import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
 import com.banco.fidc.auth.web.session.dto.response.toResponse
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
@@ -16,7 +19,8 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/v1/auth")
 class SessionController(
-    private val createUserSessionUseCase: CreateUserSessionUseCase
+    private val createUserSessionUseCase: CreateUserSessionUseCase,
+    private val selectRelationshipUseCase: SelectRelationshipUseCase
 ) : SessionApiDoc {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -71,4 +75,38 @@ class SessionController(
         return response
     }
 
+    @PatchMapping("/sessions/relationship")
+    @ResponseStatus(HttpStatus.OK)
+    override fun selectRelationship(
+        @RequestHeader("authorization") authorization: String,
+        @RequestHeader("relationshipId") relationshipId: String,
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        httpRequest: HttpServletRequest
+    ): SelectRelationshipResponse {
+        val finalCorrelationId = correlationId ?: "not-provided"
+        val userAgent = httpRequest.getHeader("user-agent") ?: "unknown"
+        
+        logger.info(
+            "Received selectRelationship request: relationshipId=${relationshipId}, correlationId=${finalCorrelationId}"
+        )
+
+        // Validações de header obrigatórios
+        require(authorization.isNotBlank()) { "Header 'authorization' cannot be empty" }
+        require(relationshipId.isNotBlank()) { "Header 'relationshipId' cannot be empty" }
+
+        val clientIpAddress = httpRequest.getClientIp()
+        val input = SelectRelationshipInput(
+            accessToken = authorization,
+            relationshipId = relationshipId,
+            clientIpAddress = clientIpAddress,
+            userAgent = userAgent,
+            correlationId = finalCorrelationId
+        )
+        
+        val output = selectRelationshipUseCase.execute(input)
+        val response = output.toResponse()
+
+        logger.info("Relationship selected successfully: relationshipId=${relationshipId}, correlationId=${finalCorrelationId}")
+        return response
+    }
 }

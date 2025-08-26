@@ -52,7 +52,6 @@ properties:
   session:
     ttl-minutes: 30
     cleanup-interval-minutes: 5
-    secret-length: 36
 
 logging:
   level:

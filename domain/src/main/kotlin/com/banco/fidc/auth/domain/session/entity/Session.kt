@@ -20,7 +20,8 @@ class Session private constructor(
     private var _fund: Fund,
     private var _relationshipList: List<Relationship>,
     private var _relationshipsSelected: Relationship?,
-    private var _permissions: List<String>
+    private var _permissions: List<String>,
+    private var _ttlMinutes: Int
 ) {
     val sessionId: UUID get() = _sessionId
     val createdAt: LocalDateTime get() = _createdAt
@@ -35,6 +36,7 @@ class Session private constructor(
     val relationshipList: List<Relationship> get() = _relationshipList.toList()
     val relationshipsSelected: Relationship? get() = _relationshipsSelected
     val permissions: List<String> get() = _permissions.toList()
+    val ttlMinutes: Int get() = _ttlMinutes
     
     companion object {
         fun create(
@@ -45,7 +47,9 @@ class Session private constructor(
             userInfo: UserInfo,
             fund: Fund,
             relationshipList: List<Relationship>,
-            permissions: List<String>
+            permissions: List<String>,
+            ttlMinutes: Int,
+            sessionSecret: String
         ): Session {
             validatePartner(partner)
             validateUserAgent(userAgent)
@@ -53,7 +57,6 @@ class Session private constructor(
             
             val now = LocalDateTime.now()
             val sessionId = UUID.randomUUID()
-            val sessionSecret = UUID.randomUUID().toString()
             
             return Session(
                 _sessionId = sessionId,
@@ -68,7 +71,8 @@ class Session private constructor(
                 _fund = fund,
                 _relationshipList = relationshipList.toList(),
                 _relationshipsSelected = null,
-                _permissions = permissions.toList()
+                _permissions = permissions.toList(),
+                _ttlMinutes = ttlMinutes
             )
         }
         
@@ -85,7 +89,8 @@ class Session private constructor(
             fund: Fund,
             relationshipList: List<Relationship>,
             relationshipsSelected: Relationship?,
-            permissions: List<String>
+            permissions: List<String>,
+            ttlMinutes: Int
         ): Session {
             return Session(
                 _sessionId = sessionId,
@@ -100,7 +105,8 @@ class Session private constructor(
                 _fund = fund,
                 _relationshipList = relationshipList.toList(),
                 _relationshipsSelected = relationshipsSelected,
-                _permissions = permissions.toList()
+                _permissions = permissions.toList(),
+                _ttlMinutes = ttlMinutes
             )
         }
         
@@ -153,7 +159,7 @@ class Session private constructor(
     }
     
     fun updatePermissions(newPermissions: List<String>) {
-        _permissions = newPermissions.toList()
+        _permissions = newPermissions
         _updatedAt = LocalDateTime.now()
     }
     

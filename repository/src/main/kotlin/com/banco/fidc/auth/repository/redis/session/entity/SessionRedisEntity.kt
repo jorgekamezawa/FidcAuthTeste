@@ -25,7 +25,8 @@ data class SessionRedisEntity(
     val fund: FundRedis,
     val relationshipList: List<RelationshipRedis>,
     val relationshipsSelected: RelationshipRedis?,
-    val permissions: List<String>
+    val permissions: List<String>,
+    val ttlMinutes: Int
 )
 
 data class UserInfoRedis(
@@ -68,7 +69,8 @@ fun Session.toRedisEntity(): SessionRedisEntity {
         fund = this.fund.toRedis(),
         relationshipList = this.relationshipList.map { it.toRedis() },
         relationshipsSelected = this.relationshipsSelected?.toRedis(),
-        permissions = this.permissions
+        permissions = this.permissions,
+        ttlMinutes = this.ttlMinutes
     )
 }
 
@@ -88,7 +90,8 @@ fun SessionRedisEntity.toDomainEntity(): Session {
         fund = this.fund.toDomain(),
         relationshipList = this.relationshipList.map { it.toDomain() },
         relationshipsSelected = this.relationshipsSelected?.toDomain(),
-        permissions = this.permissions
+        permissions = this.permissions,
+        ttlMinutes = this.ttlMinutes
     )
 }
 

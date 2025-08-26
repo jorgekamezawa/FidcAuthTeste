@@ -1,4 +1,4 @@
-package com.banco.fidc.auth.web.filter
+package com.banco.fidc.auth.web.common.filter
 
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest

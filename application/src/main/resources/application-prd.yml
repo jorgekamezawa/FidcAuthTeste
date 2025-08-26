@@ -51,4 +51,3 @@ properties:
   session:
     ttl-minutes: ${SESSION_TTL_MINUTES}
     cleanup-interval-minutes: ${SESSION_CLEANUP_INTERVAL_MINUTES}
-    secret-length: ${SESSION_SECRET_LENGTH}
