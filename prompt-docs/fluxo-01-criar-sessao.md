@@ -2,9 +2,9 @@
 
 ## 📋 Visão Geral
 - **Trigger**: Chamada API REST pelo portal
-- **Objetivo**: Validar usuário, criar sessão completa com relacionamentos e permissões gerais
+- **Objetivo**: Autenticar usuário via JWT, invalidar sessão anterior, buscar dados do usuário e permissões gerais, criar nova sessão com AccessToken
 - **Microserviço**: `fidc-auth`
-- **Endpoint**: `POST /sessions`
+- **Endpoint**: `POST /v1/sessions`
 
 ## 🔄 Contrato da API
 
@@ -18,8 +18,8 @@
 - `latitude` (localização GPS - se não informado, será salvo como nulo)
 - `longitude` (localização GPS - se não informado, será salvo como nulo)
 - `location-accuracy` (precisão da localização em metros - se não informado, será salvo como nulo)
-- `location-timestamp` (timestamp da captura da localização - se não informado, será salvo como nulo)
-- `x-correlation-id` (gerado automaticamente se ausente)
+- `location-timestamp` (timestamp da captura da localização ISO format - se não informado, será salvo como nulo)
+- `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
 
 ### Headers Automáticos (para rate limiting):
 - `x-forwarded-for` ou `remote-addr` (IP do cliente)
@@ -106,62 +106,61 @@
 
 ## 📋 Regras de Negócio:
 
-### 1. Validações de Entrada
+### 1. Validações Simples de Entrada
 * **Rate limiting:** Verificar limites por IP e User-Agent
 * **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
-* **Headers obrigatórios:** partner, user-agent, channel, fingerprint, latitude, longitude, location-accuracy, location-timestamp
+* **Headers obrigatórios:** Validar presença de partner, user-agent, channel, fingerprint
 * **Se headers ausentes:** Retornar erro 400 "Headers obrigatórios ausentes"
-* **JWT:** Validar assinatura usando estratégia de fallback (cache Redis → AWS → FidcPassword)
+* **Channel:** Validar se o valor informado é um canal suportado (WEB, MOBILE, etc.)
+* **Se Channel inválido:** Retornar erro 400 "Channel '[valor]' é incorreto. Valores aceitos: [lista]"
+
+### 2. Autenticação JWT e Extração de Dados
+* **Validar JWT:** Verificar assinatura do token no campo signedData
 * **Se JWT inválido:** Retornar erro 400 "Token JWT inválido"
-* **Extrair CPF:** Deve ter 11 dígitos numéricos
-* **Se CPF inválido:** Retornar erro 400 "CPF inválido"
+* **Extrair CPF:** Obter CPF do usuário a partir do payload do token
+* **Se CPF ausente/inválido:** Retornar erro 400 "Dados de usuário inválidos no token"
 
-### 2. Validação de Consistência e Invalidação de Sessão Anterior
-* **Buscar controle de usuário no PostgreSQL:** tabela `user_session_control` usando CPF + partner
-* **Se encontrar registro:**
-   * **Verificar consistência entre cache e histórico:**
-      * Buscar última sessão do histórico em `session_access_history`
-      * Se `current_session_id` ≠ `session_id` do último histórico:
-         * Logar inconsistência detectada
-         * Corrigir `current_session_id` automaticamente
-   * **Se is_active = true (sessão anterior ativa):**
-      * Buscar sessão anterior no Redis: `session:{current_session_id}`
-      * Se sessão existe no Redis → Remover do Redis
-      * Se erro ao remover do Redis → Retornar erro 500 genérico
+### 3. Invalidação de Sessão Anterior
+* **Buscar sessão anterior:** Verificar se usuário já possui sessão ativa para o partner
+* **Se sessão anterior encontrada:**
+   * **Remover sessão do cache:** Invalidar sessão ativa no Redis
+   * **Atualizar controle de sessão:** Marcar sessão como inativa no banco de dados
+   * **Log:** Registrar invalidação da sessão anterior
+* **Se erro ao invalidar:** Retornar erro 500 "Erro interno do servidor"
+* **Se nenhuma sessão anterior:** Prosseguir normalmente
 
-### 3. Busca de Dados do Usuário (UserManagement)
+### 4. Busca de Dados do Usuário
 * **Chamar UserManagement:** GET /users com headers partner e cpf
 * **Se erro na integração:** Retornar erro 503 "Serviço temporariamente indisponível"
 * **Se usuário não encontrado:** Retornar erro 404 "Usuário não encontrado"
-* **Se sucesso:** Extrair userInfo, fund e relationshipList
+* **Se sucesso:** Obter dados pessoais, informações do fundo e lista de relacionamentos
 
-### 4. Busca de Permissões Gerais (FidcPermission)
+### 5. Busca de Permissões Gerais
 * **Chamar FidcPermission:** GET /permissions com headers partner e cpf (SEM relationshipId)
 * **Se erro na integração:** Retornar erro 503 "Serviço temporariamente indisponível"
 * **Se sem permissões:** Continuar com array vazio (usuário pode não ter permissões gerais)
-* **Se sucesso:** Extrair permissões gerais
+* **Se sucesso:** Obter lista de permissões gerais do usuário
 
-### 5. Geração de Identificadores da Sessão
+### 6. Geração de Identificadores da Sessão
 * **Gerar sessionId:** UUID único
 * **Gerar sessionSecret:** Hash único para assinatura do AccessToken desta sessão
 * **Definir expiração:** Timestamp atual + 30 minutos
 
-### 6. Persistência Atômica da Sessão
-**Operação transacional no PostgreSQL + Redis:**
-* **Atualizar/Inserir em** `user_session_control`:
-   * Se é primeiro acesso: `first_access_at = NOW()`
-   * Se não é primeiro acesso: `previous_access_at = last_access_at`
-   * Sempre: `last_access_at = NOW()`, `current_session_id = sessionId`, `is_active = true`
-   * Se erro no PostgreSQL → Retornar erro 500 genérico
-* **Inserir em** `session_access_history`:
-   * Todos os dados completos da sessão (occurred_at, ip_address, user_agent, latitude, longitude, location_accuracy, location_timestamp)
-   * Se erro no PostgreSQL → Retornar erro 500 genérico
-* **Salvar sessão no Redis:** `session:{sessionId}`
-   * Incluir sessionSecret nos dados
-   * TTL Redis: 30 minutos
-   * Se erro ao salvar no Redis → Retornar erro 500 genérico
+### 7. Persistência Atômica da Sessão
+**Operação transacional:**
+* **Controle de Sessão:**
+   * Atualizar ou criar registro de controle do usuário (CPF + partner)
+   * Registrar nova sessão como ativa com timestamps
+   * Se erro no banco → Retornar erro 500
+* **Histórico de Acesso:**
+   * Registrar acesso com dados da requisição (IP, user-agent, localização)
+   * Tratar dados opcionais de localização (latitude, longitude, etc.)
+   * Se erro no banco → Retornar erro 500
+* **Cache da Sessão:**
+   * Salvar sessão completa no Redis com TTL configurado
+   * Se erro no cache → Retornar erro 500
 
-### 7. Geração do AccessToken
+### 8. Geração do AccessToken
 * **Assinar JWT:** Usar sessionSecret gerado especificamente para esta sessão
 * **Claims:**
   ```json
@@ -173,12 +172,13 @@
 * **Algoritmo:** HMAC-SHA256
 * **TTL:** 30 minutos (mesma duração da sessão)
 
-### 8. Resposta Final
+### 9. Resposta Final
+* **Preparar resposta:** Organizar dados do usuário, fundo, relacionamentos e permissões
 * **Retornar dados completos:** userInfo, fund, relationshipList, permissions, accessToken
-* **Não incluir:** relationshipsSelected (será preenchido apenas no próximo fluxo)
-* **Log INFO:** Sessão criada com sucesso
+* **Não incluir:** relationshipSelected (será definido apenas no fluxo de seleção)
+* **Log:** Registrar sucesso na criação da sessão
 
-## 🔧 Integrações e Configurações:
+## 🔧 Integrações Externas:
 
 ### UserManagement API
 - **Base URL**: http://localhost:8081 (dev), http://localhost:8081 (uat), http://localhost:8081 (prod)
@@ -202,6 +202,7 @@
     "relationshipList": [
       {
         "id": "REL001",
+        "type": "PLANO_PREVIDENCIA",
         "name": "Millenium Inc",
         "status": "ACTIVE",
         "contractNumber": "378192372163682"
@@ -209,6 +210,8 @@
     ]
   }
   ```
+- **Tratamento de Erro**: Se indisponível → Retornar erro 503 "Serviço temporariamente indisponível"
+- **Usuário não encontrado**: Retornar erro 404 "Usuário não encontrado"
 
 ### FidcPermission API
 - **Base URL**: http://localhost:8082 (dev), http://localhost:8082 (uat), http://localhost:8082 (prod)
@@ -220,6 +223,8 @@
     "permissions": ["VIEW_CONTRACTS", "CREATE_SIMULATION"]
   }
   ```
+- **Tratamento de Erro**: Se indisponível → Retornar erro 503 "Serviço temporariamente indisponível"
+- **Sem permissões**: Retornar array vazio (comportamento normal)
 
 ### Redis Session Storage
 - **Chave**: `session:{sessionId}`
@@ -297,37 +302,28 @@ CREATE TABLE session_access_history (
 - **Timeout**: 10 segundos para todas as integrações
 - **Retry**: 3 tentativas com backoff exponencial
 
-### Configurações:
-```kotlin
-@ConfigurationProperties("fidc.auth")
-data class FidcAuthConfig(
-    val userManagement: ApiConfig = ApiConfig(),
-    val fidcPermission: ApiConfig = ApiConfig(),
-    val session: SessionConfig = SessionConfig()
-) {
-    data class ApiConfig(
-        val baseUrl: String = "http://localhost:8080",
-        val timeoutSeconds: Int = 10,
-        val retryAttempts: Int = 3
-    )
-    
-    data class SessionConfig(
-        val ttlMinutes: Int = 30,
-        val secretLength: Int = 36
-    )
-}
-```
+### Configurações do Sistema:
+- **TTL da Sessão**: 30 minutos (configurado via properties)
+- **Segurança**: Geração de segredo único por sessão para assinatura JWT
+- **Rate Limiting**: Limites por IP e User-Agent conforme política definida
+- **Timeout Integrações**: 10 segundos com retry automático
 
-## 📊 Observabilidade:
-- **Logs INFO**: Sessão criada, sessão anterior invalidada, integrações bem-sucedidas
-- **Logs WARN**: Inconsistência detectada entre cache e banco, permissões vazias
-- **Logs ERROR**: Integrações falharam, erro de persistência, Redis indisponível
+## 📊 Observabilidade e Logs:
+- **Logs INFO**: 
+  - Início do processo de criação de sessão
+  - Sucesso na criação da sessão
+  - Invalidação de sessão anterior quando necessário
+- **Logs WARN**: 
+  - Channel inválido informado na requisição
+  - Erros de negócio e validação
+  - Dados opcionais inválidos (IP, timestamp de localização)
+- **Logs ERROR**: 
+  - Falhas em integrações externas
+  - Erros de persistência (banco, cache)
+  - Erros inesperados no processamento
 - **Logs DEBUG**: 
-  - Dados encontrados nas integrações (sem dados sensíveis)
-  - Estado da sessão anterior (se encontrada)
-  - Operações de banco de dados e Redis
-- **Métricas**: 
-  - Contador de sessões criadas por partner
-  - Latência das integrações (UserManagement, FidcPermission)
-  - Taxa de sessões anteriores encontradas vs novas
-  - Contador de inconsistências detectadas entre cache e banco
+  - Detalhes do processo de invalidação de sessão anterior
+  - Confirmações de operações de persistência
+  - Estados intermediários do fluxo
+
+**Correlation ID**: Automaticamente incluído em todos os logs pelo filtro do sistema.
