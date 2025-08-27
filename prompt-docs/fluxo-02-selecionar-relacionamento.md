@@ -4,21 +4,21 @@
 - **Trigger**: Chamada API REST pelo portal
 - **Objetivo**: Selecionar relacionamento específico, buscar permissões contextuais e atualizar sessão
 - **Microserviço**: `fidc-auth`
-- **Endpoint**: `PATCH /sessions/relationship`
+- **Endpoint**: `PATCH /v1/sessions/relationship`
 
 ## 📄 Contrato da API
 
 ### Headers Obrigatórios:
-- `authorization` (Bearer {accessToken} do FLUXO 1)
+- `authorization` (Bearer {accessToken})
 - `partner` (Identificador do partner - deve coincidir com o partner da sessão)
 - `relationshipId` (ID do relacionamento a ser selecionado)
+- `user-agent` (para rate limiting)
 
 ### Headers Opcionais:
-- `x-correlation-id` (gerado automaticamente se ausente)
+- `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
 
 ### Headers Automáticos (para rate limiting):
 - `x-forwarded-for` ou `remote-addr` (IP do cliente)
-- `user-agent` (identificação do browser/client)
 
 ### Request Body:
 ```json
@@ -101,70 +101,53 @@
 
 ## 📋 Regras de Negócio:
 
-### 1. Validações de Entrada
-* **Header partner:** Verificar presença do header partner
-* **Se header partner ausente:** Retornar erro 400 "Header partner é obrigatório"
-* **Se partner vazio:** Retornar erro 400 "Partner não pode estar vazio"
+### 1. Validações Simples de Entrada
+* **Headers obrigatórios:** Validar presença de partner, authorization, relationshipId, user-agent
+* **Se headers ausentes:** Retornar erro 400 "Headers obrigatórios ausentes"
 * **Rate limiting:** Verificar limites por IP e User-Agent
 * **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
-* **Header Authorization:** Verificar presença do Bearer token
-* **Se header ausente:** Retornar erro 401 "Token de acesso obrigatório"
-* **Header relationshipId:** Verificar presença e formato do relationshipId
-* **Se relationshipId ausente:** Retornar erro 400 "Header relationshipId é obrigatório"
-* **Se relationshipId vazio:** Retornar erro 400 "RelationshipId não pode estar vazio"
 
-### 2. Validação do AccessToken
-* **Extrair AccessToken:** Do header Authorization (Bearer {token})
-* **Decodificar JWT:** Extrair claims sem validar assinatura ainda
-* **Se JWT malformado:** Retornar erro 401 "Token de acesso inválido"
-* **Extrair sessionId:** Da claim "sessionId" do JWT
-* **Se sessionId ausente:** Retornar erro 401 "Token de acesso inválido"
-
-### 3. Buscar Sessão e Validar Partner
-* **Buscar sessão no Redis:** Chave `session:{sessionId}`
+### 2. Autenticação e Validação de Sessão
+* **Extrair sessionId:** Do AccessToken no header Authorization
+* **Se token malformado:** Retornar erro 400 "Token de acesso contém sessionId inválido"
+* **Buscar sessão:** Localizar sessão ativa no cache usando sessionId
 * **Se sessão não encontrada:** Retornar erro 404 "Sessão não encontrada ou expirada"
-* **Validar partner da sessão:** Verificar se o partner da sessão coincide com o partner do header (case-insensitive)
-* **Se partner não coincide:** Retornar erro 403 "Partner não autorizado para esta sessão"
-* **Extrair sessionSecret:** Da sessão encontrada no Redis
-* **Validar assinatura JWT:** Usando sessionSecret específico da sessão
-* **Se assinatura inválida:** Retornar erro 401 "Token de acesso inválido"
-* **Verificar expiração:** Comparar claim "exp" com timestamp atual
-* **Se token expirado:** Retornar erro 401 "Token de acesso expirado"
+* **Validar partner:** Verificar se partner do header coincide com partner da sessão
+* **Se partner não autorizado:** Retornar erro 403 "Partner não autorizado para esta sessão"
+* **Validar AccessToken:** Verificar assinatura JWT usando sessionSecret da sessão
+* **Se token inválido:** Retornar erro 401 "Token de acesso inválido"
 
-### 4. Validação do Relacionamento
-* **Extrair relationshipId:** Do header "relationshipId"
-* **Buscar relacionamento:** Procurar relationshipId na relationshipList da sessão
+### 3. Validação do Relacionamento
+* **Buscar relacionamento:** Procurar relationshipId na lista de relacionamentos da sessão
 * **Se relacionamento não encontrado:** Retornar erro 400 "Relacionamento não encontrado na sessão"
-* **Verificar status:** Relacionamento deve ter status "ACTIVE" (se aplicável)
+* **Verificar status:** Relacionamento deve ter status "ACTIVE"
 * **Se status inativo:** Retornar erro 400 "Relacionamento inativo"
 
-### 5. Busca de Permissões Específicas (FidcPermission)
+### 4. Busca de Permissões Específicas
 * **Extrair dados da sessão:** partner e cpf do userInfo
-* **Chamar FidcPermission:** GET /permissions com headers partner, cpf e relationshipId
+* **Buscar permissões:** Obter permissões específicas do relacionamento selecionado
 * **Se erro na integração:** Retornar erro 503 "Serviço temporariamente indisponível"
-* **Se sem permissões:** Continuar com array vazio (relacionamento pode não ter permissões)
-* **Se sucesso:** Extrair permissões específicas do relacionamento
+* **Se sem permissões:** Retornar erro 400 "Nenhuma permissão encontrada para o relacionamento selecionado"
+* **Se sucesso:** Obter lista de permissões contextuais do relacionamento
 
-### 6. Atualização da Sessão
-* **Definir relationshipSelected:** Copiar objeto completo do relacionamento da relationshipList
-* **Substituir permissions:** Trocar permissões gerais pelas específicas do relacionamento
-* **Atualizar updatedAt:** Timestamp atual da modificação
-* **Salvar no Redis:** Atualizar sessão com novos dados
-* **Manter TTL:** Preservar tempo de expiração original da sessão
+### 5. Atualização da Sessão
+* **Selecionar relacionamento:** Definir relacionamento escolhido na sessão
+* **Atualizar permissões:** Substituir permissões gerais pelas específicas do relacionamento
+* **Persistir sessão:** Salvar sessão atualizada no cache
 * **Se erro ao salvar:** Retornar erro 500 "Erro interno do servidor"
 
-### 7. Reutilização do AccessToken
+### 6. Reutilização do AccessToken
 * **Manter AccessToken original:** Usar o mesmo AccessToken recebido na requisição
 * **Não gerar novo token:** Token atual já foi validado e ainda é válido
 * **Preservar expiração:** Manter a mesma expiração do token original
 
-### 8. Resposta Final
-* **Retornar sessão completa:** userInfo, fund, relationshipList, relationshipSelected, permissions, accessToken
-* **relationshipSelected:** Objeto completo do relacionamento selecionado
-* **permissions:** Permissões específicas do relacionamento (substituem as gerais)
-* **Log INFO:** Relacionamento selecionado com sucesso
+### 7. Resposta Final
+* **Preparar resposta:** Organizar dados da sessão atualizada com relacionamento selecionado
+* **Retornar dados completos:** userInfo, fund, relationshipList, relationshipSelected, permissions, accessToken
+* **permissions:** Permissões contextuais do relacionamento selecionado
+* **Log:** Registrar sucesso na seleção do relacionamento
 
-## 🔧 Integrações e Configurações:
+## 🔧 Integrações Externas:
 
 ### FidcPermission API
 - **Base URL**: http://localhost:8082 (dev), http://localhost:8082 (uat), http://localhost:8082 (prod)
@@ -185,7 +168,7 @@
   ```
 
 ### Redis Session Update
-- **Chave**: `session:{sessionId}` (mesma chave da sessão existente)
+- **Chave**: `fidc:session:{partner}:{sessionId}` (mesma chave da sessão existente)
 - **TTL**: Preservar TTL original (não reset)
 - **Campos atualizados**:
   ```json
@@ -213,37 +196,26 @@
 - **Retry**: 3 tentativas com backoff exponencial
 - **Circuit Breaker**: Mesmo padrão do FLUXO 1
 
-### Configurações:
-```kotlin
-@ConfigurationProperties("fidc.auth")
-data class FidcAuthConfig(
-    val fidcPermission: ApiConfig = ApiConfig(),
-    val session: SessionConfig = SessionConfig()
-) {
-    data class ApiConfig(
-        val baseUrl: String = "http://localhost:8082",
-        val timeoutSeconds: Int = 10,
-        val retryAttempts: Int = 3
-    )
-    
-    data class SessionConfig(
-        val preserveTtl: Boolean = true,
-        val updateTimestampOnSelect: Boolean = true
-    )
-}
-```
+### Configurações do Sistema:
+- **TTL da Sessão**: Preservar TTL original da sessão (não resetar)
+- **Timeout Integrações**: 10 segundos com retry automático
+- **Rate Limiting**: Limites por IP e User-Agent conforme política definida
+- **Cache**: Atualizar sessão existente sem alterar TTL
 
-## 📊 Observabilidade:
-- **Logs INFO**: Relacionamento selecionado com sucesso, permissões específicas obtidas
-- **Logs WARN**: Relacionamento sem permissões específicas, fallback para array vazio
-- **Logs ERROR**: Integração FidcPermission falhou, erro ao atualizar sessão no Redis
-- **Logs DEBUG**:
-  - AccessToken validado com sucesso (sem dados sensíveis)
-  - Relacionamento encontrado na sessionList
-  - Permissões específicas retornadas pela integração
-  - Estado da sessão antes e depois da atualização
-- **Métricas**:
-  - Contador de seleções de relacionamento por partner
-  - Latência da integração FidcPermission
-  - Taxa de relacionamentos selecionados vs total de relacionamentos disponíveis
-  - Contador de permissões específicas vs gerais por relacionamento
+## 📊 Observabilidade e Logs:
+- **Logs INFO**: 
+  - Início do processo de seleção de relacionamento
+  - Sucesso na seleção com sessionId e relationshipId
+- **Logs WARN**: 
+  - Erros de negócio e validação
+  - Dados corrompidos encontrados no Redis
+- **Logs ERROR**: 
+  - Falhas em integrações externas
+  - Erros de persistência (cache)
+  - Erros inesperados no processamento
+- **Logs DEBUG**: 
+  - Detalhes da validação de sessão e relacionamento
+  - Confirmações de operações de persistência
+  - Estados intermediários do fluxo
+
+**Correlation ID**: Automaticamente incluído em todos os logs pelo filtro do sistema.

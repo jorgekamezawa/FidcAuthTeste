@@ -227,7 +227,7 @@
 - **Sem permissões**: Retornar array vazio (comportamento normal)
 
 ### Redis Session Storage
-- **Chave**: `session:{sessionId}`
+- **Chave**: `fidc:session:{partner}:{sessionId}`
 - **TTL**: 30 minutos
 - **Estrutura**:
   ```json

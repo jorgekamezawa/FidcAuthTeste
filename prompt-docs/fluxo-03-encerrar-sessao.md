@@ -4,20 +4,20 @@
 - **Trigger**: Chamada API REST pelo portal (logout manual)
 - **Objetivo**: Encerrar sessão ativa, invalidar AccessToken e limpar estado da sessão
 - **Microserviço**: `fidc-auth`
-- **Endpoint**: `DELETE /sessions`
+- **Endpoint**: `DELETE /v1/sessions`
 
 ## 📄 Contrato da API
 
 ### Headers Obrigatórios:
-- `authorization` (Bearer {accessToken} do FLUXO 1/2)
+- `Authorization` (Bearer {accessToken})
 - `partner` (prevcom, caio, etc.)
+- `user-agent` (para rate limiting)
 
 ### Headers Opcionais:
-- `x-correlation-id` (gerado automaticamente se ausente)
+- `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
 
 ### Headers Automáticos (para rate limiting):
 - `x-forwarded-for` ou `remote-addr` (IP do cliente)
-- `user-agent` (identificação do browser/client)
 
 ### Request Body:
 ```json
@@ -58,119 +58,90 @@ Body: (vazio)
 
 ## 📋 Regras de Negócio:
 
-### 1. Validações de Entrada
+### 1. Validações Simples de Entrada
+* **Headers obrigatórios:** Validar presença de Authorization, partner, user-agent
+* **Se headers ausentes:** Retornar erro 400 "Headers obrigatórios ausentes"
 * **Rate limiting:** Verificar limites por IP e User-Agent
 * **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
-* **Header Authorization:** Verificar presença do Bearer token
-* **Se header ausente:** Retornar erro 401 "Token de acesso obrigatório"
-* **Header partner:** Verificar presença do partner
-* **Se header ausente:** Retornar erro 400 "Header partner é obrigatório"
 
-### 2. Validação do AccessToken
-* **Extrair AccessToken:** Do header Authorization (Bearer {token})
-* **Decodificar JWT:** Extrair claims sem validar assinatura ainda
-* **Se JWT malformado:** Retornar erro 401 "Token de acesso inválido"
-* **Extrair sessionId:** Da claim "sessionId" do JWT
-* **Se sessionId ausente:** Retornar erro 401 "Token de acesso inválido"
+### 2. Extração de SessionId e Busca da Sessão
+* **Extrair sessionId:** Do AccessToken no header Authorization
+* **Se token malformado:** Retornar erro 400 "Token de acesso contém sessionId inválido"
+* **Buscar sessão:** Localizar sessão ativa no cache usando sessionId
+* **Se sessão não encontrada no Redis:** Verificar estado no PostgreSQL
+  * **Buscar por sessionId no banco:** Localizar registro na tabela de controle de sessão
+  * **Se encontrada no banco:**
+    * **Verificar partner:** Partner do header deve coincidir com o da sessão
+    * **Se partner não autorizado:** Retornar erro 403 "Partner não autorizado para esta sessão"
+    * **Se já inativa:** Retornar 204 No Content (operação idempotente)
+    * **Se ainda ativa:** Marcar como inativa e retornar 204 No Content
+  * **Se não encontrada:** Retornar 204 No Content (operação idempotente)
 
-### 3. Buscar Sessão e Validar Partner
-* **Buscar sessão no Redis:** Usando sessionId extraído do token
-* **Se sessão não encontrada:** Retornar 204 (operação idempotente - sessão já encerrada/expirada)
-* **Validar partner da sessão:** Verificar se o partner da sessão coincide com o partner do header (case-insensitive)
-* **Se partners diferentes:** Retornar erro 403 "Partner não autorizado para esta sessão"
-* **Extrair sessionSecret:** Da sessão encontrada no Redis
-* **Validar assinatura JWT:** Usando sessionSecret específico da sessão
-* **Se ExpiredJwtException (token expirado):** Continuar com invalidação da sessão (comportamento normal)
-* **Se SignatureException (assinatura inválida):** Retornar erro 401 "Token de acesso com assinatura inválida"
-* **Se MalformedJwtException (token malformado):** Retornar erro 400 "Token de acesso malformado"
+### 3. Validação de Partner e AccessToken
+* **Validar partner:** Verificar se partner do header coincide com partner da sessão
+* **Se partner não autorizado:** Retornar erro 403 "Partner não autorizado para esta sessão"
+* **Validar AccessToken:** Verificar assinatura JWT usando sessionSecret da sessão (com tratamento seguro de tokens expirados)
+* **Se token inválido:** Continuar com encerramento (comportamento seguro para tokens expirados)
 
-### 4. Remoção da Sessão (Operação Atômica)
-* **Remover do Redis:** Deletar chave `session:{sessionId}`
-* **Se erro no Redis:** Retornar erro 503 "Serviço temporariamente indisponível"
-* **Atualizar PostgreSQL:** Buscar por current_session_id e marcar is_active = false
-* **Se erro no PostgreSQL:** Retornar erro 500 "Erro interno do servidor"
-* **Se sessão não encontrada no PostgreSQL:** Continuar normalmente (inconsistência será resolvida pelo job de limpeza)
+### 4. Remoção Atômica da Sessão
+* **Remover do cache:** Deletar sessão do Redis
+* **Se erro no Redis:** Retornar erro 500 "Serviço temporariamente indisponível"
+* **Atualizar controle de sessão:** Marcar sessão como inativa no banco de dados
+* **Se erro no banco:** Retornar erro 500 "Erro interno do servidor"
+* **Tratamento de inconsistências:** Continuar mesmo se sessão não for encontrada no banco
 
 ### 5. Resposta Final
 * **Retornar 204:** Sem conteúdo (sessão encerrada com sucesso)
-* **Log INFO:** Sessão encerrada manualmente pelo usuário
+* **Log:** Registrar encerramento manual da sessão
 
-## 🔧 Configurações e Infraestrutura:
+## 🔧 Configurações do Sistema:
 
-### Job de Limpeza de Inconsistências
-Executa periodicamente (a cada 5 minutos) para resolver inconsistências entre Redis e PostgreSQL:
-- Busca sessões marcadas como ativas no PostgreSQL
-- Verifica se essas sessões ainda existem no Redis
-- Se a sessão não existe mais no Redis (expirou por TTL), marca como inativa no PostgreSQL
-- Registra quantidade de sessões processadas e inconsistências encontradas
+### Operações de Persistência
+- **Cache (Redis)**: Remover sessão completa do cache
+- **Banco de Dados**: Marcar sessão como inativa na tabela de controle
+- **Tratamento de Erro**: Operação transacional com rollback em caso de falha
 
-### PostgreSQL Operation
-Operações realizadas no banco de dados:
-- Buscar sessões ativas através da tabela user_session_control
-- Desativar sessão específica atualizando is_active = false baseado no current_session_id
+### Configurações de Timeout
+- **Rate Limiting**: Limites por IP e User-Agent conforme política definida
+- **Operação Idempotente**: Retorna 204 mesmo se sessão já não existir
+- **Validação Segura**: Continua encerramento mesmo com tokens expirados
 
-### Redis Operation
-Operações realizadas no Redis:
-- Verificar existência da sessão através da chave session:{sessionId}
-- Remover sessão completa do cache Redis
+## 📊 Observabilidade e Logs:
 
-### Política de Integração:
-- **Redis Timeout**: 5 segundos
-- **PostgreSQL Timeout**: 10 segundos
-- **Retry**: Não aplicável para DELETE (operação única)
-
-### Configurações:
-Configurações específicas para o encerramento de sessões:
-- Tempo limite para operações Redis: 5 segundos
-- Tempo limite para operações PostgreSQL: 10 segundos
-- Intervalo do job de limpeza: 5 minutos
-- Tamanho do lote para processamento de sessões: 100 registros por vez
-
-## 📊 Observabilidade:
-
-### Logs Estruturados:
-- **Logs INFO**:
+- **Logs INFO**: 
+  - Início do processo de encerramento de sessão
+  - Sessão não encontrada no Redis (verificação PostgreSQL)
+  - Sessão desativada no PostgreSQL
   - Sessão encerrada manualmente com sucesso
-  - Job de limpeza executado (quantidade de sessões processadas)
-  - Sessões expiradas detectadas e desativadas automaticamente
-- **Logs WARN**:
-  - Sessão não encontrada no PostgreSQL (inconsistência detectada)
-  - Partner mismatch entre request e sessão
-- **Logs ERROR**:
-  - Falha ao remover sessão do Redis
-  - Falha ao atualizar PostgreSQL
-  - Job de limpeza falhou
-- **Logs DEBUG**:
-  - AccessToken validado com sucesso
-  - Operação de remoção iniciada
-  - Estado das operações Redis e PostgreSQL
+- **Logs WARN**: 
+  - Erros de negócio e validação
+  - Inconsistências detectadas entre cache e banco
+  - Dados corrompidos encontrados no Redis
+- **Logs ERROR**: 
+  - Falhas em operações de persistência (cache, banco)
+  - Erros inesperados no processamento
+- **Logs DEBUG**: 
+  - Sessão já estava inativa no PostgreSQL
+  - Sessão não encontrada nem no Redis nem no PostgreSQL
+  - Confirmações de operações de remoção
+  - Estados intermediários do fluxo de verificação
 
-### Métricas:
-- **Contador**: Sessões encerradas manualmente vs automaticamente (TTL)
-- **Contador**: Inconsistências detectadas pelo job de limpeza
-- **Gauge**: Sessões ativas no Redis vs PostgreSQL (diferença)
-- **Timer**: Latência da operação DELETE /sessions
-- **Contador**: Tentativas de encerramento com partner inválido
-- **Contador**: Execuções do job de limpeza e sessões processadas
+**Correlation ID**: Automaticamente incluído em todos os logs pelo filtro do sistema.
 
 
 
-## ⚙️ Tratamento de Casos Extremos: 
+## ⚙️ Casos Especiais:
 
-### Cenário 1: Redis Indisponível
-- **Comportamento**: Retorna erro 503 imediatamente
-- **Justificativa**: Não pode garantir que a sessão foi invalidada
-- **Recovery**: Cliente deve tentar novamente quando Redis voltar
+### Operação Idempotente
+- **Sessão Não Encontrada no Redis**: Verifica PostgreSQL e ajusta estado se necessário
+- **Sessão Já Inativa no PostgreSQL**: Retorna 204 (objetivo já alcançado)
+- **Tokens Expirados**: Continua com encerramento da sessão (comportamento seguro)
+- **Sessão Inexistente**: Retorna 204 (operação idempotente)
 
-### Cenário 2: PostgreSQL Indisponível
-- **Comportamento**: Remove do Redis, depois falha no PostgreSQL → Erro 500
-- **Justificativa**: Sessão fica inconsistente (inativa no Redis, ativa no PostgreSQL)
-- **Recovery**: Job de limpeza resolve a inconsistência posteriormente
+### Segurança
+- **Partner Mismatch**: Retorna 403 sem fazer alterações (impede encerramento cruzado)
+- **Validação de Token**: Usando sessionSecret específico da sessão
 
-### Cenário 3: Sessão Já Expirada
-- **Comportamento**: Retorna 204 (idempotente)
-- **Justificativa**: Objetivo já foi alcançado (sessão não está ativa)
-
-### Cenário 4: Partner Mismatch
-- **Comportamento**: Retorna 403 sem fazer alterações
-- **Justificativa**: Segurança - impede que um partner encerre sessões de outro
+### Tratamento de Falhas
+- **Falhas de Persistência**: Retorna erro 500 para garantir que o cliente saiba que a operação falhou
+- **Inconsistências**: Registradas em logs para monitoramento e análise

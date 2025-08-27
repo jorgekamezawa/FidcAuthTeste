@@ -14,6 +14,8 @@ interface UserSessionControlRepository {
     
     fun findByCpfAndPartner(cpf: String, partner: String): UserSessionControl?
     
+    fun findByCurrentSessionId(currentSessionId: UUID): UserSessionControl?
+    
     fun existsById(id: Long): Boolean
     
     fun existsByExternalId(externalId: UUID): Boolean

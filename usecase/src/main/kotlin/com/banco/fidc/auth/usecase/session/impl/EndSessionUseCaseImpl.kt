@@ -43,7 +43,8 @@ class EndSessionUseCaseImpl(
             val session = findSession(sessionId)
             
             if (session == null) {
-                logger.info("Sessão não encontrada ou já expirada: sessionId=${sessionId}")
+                logger.info("Sessão não encontrada no Redis: sessionId=${sessionId}")
+                handleSessionNotFoundInRedis(sessionId, input.partner)
                 return
             }
             
@@ -100,6 +101,39 @@ class EndSessionUseCaseImpl(
     }
     
     private fun findSession(sessionId: UUID) = sessionRepository.findBySessionId(sessionId)
+    
+    private fun handleSessionNotFoundInRedis(sessionId: UUID, partner: String) {
+        try {
+            // Extrair CPF do token seria complexo sem a sessão do Redis
+            // Então vamos buscar por sessionId diretamente no PostgreSQL
+            val userSessionControl = userSessionControlRepository.findByCurrentSessionId(sessionId)
+            
+            if (userSessionControl != null) {
+                // Verificar se o partner coincide
+                if (!userSessionControl.partner.equals(partner, ignoreCase = true)) {
+                    throw SessionValidationException("Partner não autorizado para esta sessão")
+                }
+                
+                // Se já está inativa, operação idempotente
+                if (!userSessionControl.isActive) {
+                    logger.debug("Sessão já estava inativa no PostgreSQL: sessionId=${sessionId}")
+                    return
+                }
+                
+                // Se está ativa, desativar
+                userSessionControl.deactivateSession()
+                userSessionControlRepository.save(userSessionControl)
+                logger.info("Sessão desativada no PostgreSQL: sessionId=${sessionId}")
+            } else {
+                logger.debug("Sessão não encontrada nem no Redis nem no PostgreSQL: sessionId=${sessionId}")
+            }
+        } catch (ex: BusinessException) {
+            throw ex
+        } catch (ex: Exception) {
+            logger.error("Erro ao verificar sessão no PostgreSQL", ex)
+            throw SessionProcessingException("Erro interno do servidor", ex)
+        }
+    }
     
     private fun validateSessionPartner(session: com.banco.fidc.auth.domain.session.entity.Session, partner: String) {
         if (!session.partner.equals(partner, ignoreCase = true)) {

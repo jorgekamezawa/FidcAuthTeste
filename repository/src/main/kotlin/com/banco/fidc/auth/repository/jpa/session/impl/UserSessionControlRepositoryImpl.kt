@@ -105,6 +105,21 @@ class UserSessionControlRepositoryImpl(
         }
     }
 
+    override fun findByCurrentSessionId(currentSessionId: UUID): UserSessionControl? {
+        logger.debug("Finding UserSessionControl by currentSessionId: $currentSessionId")
+        
+        return try {
+            jpaRepository.findByCurrentSessionId(currentSessionId)
+                ?.toDomainEntity()
+        } catch (e: Exception) {
+            logger.error("Error finding UserSessionControl by currentSessionId: ${e.message}", e)
+            throw SessionRepositoryException(
+                "Failed to find UserSessionControl by currentSessionId",
+                e
+            )
+        }
+    }
+
     override fun existsById(id: Long): Boolean {
         return try {
             jpaRepository.existsById(id)

@@ -19,6 +19,8 @@ interface UserSessionControlJpaRepository : JpaRepository<UserSessionControlJpaE
     @Query("SELECT u FROM UserSessionControlJpaEntity u WHERE u.cpf = :cpf AND LOWER(u.partner) = LOWER(:partner)")
     fun findByCpfAndPartner(@Param("cpf") cpf: String, @Param("partner") partner: String): UserSessionControlJpaEntity?
     
+    fun findByCurrentSessionId(currentSessionId: UUID): UserSessionControlJpaEntity?
+    
     @Query("SELECT COUNT(u) > 0 FROM UserSessionControlJpaEntity u WHERE u.cpf = :cpf AND LOWER(u.partner) = LOWER(:partner)")
     fun existsByCpfAndPartner(@Param("cpf") cpf: String, @Param("partner") partner: String): Boolean
     

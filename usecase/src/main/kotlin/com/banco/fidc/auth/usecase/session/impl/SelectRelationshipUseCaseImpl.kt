@@ -123,13 +123,19 @@ class SelectRelationshipUseCaseImpl(
     }
     
     private fun fetchRelationshipPermissions(session: Session, relationshipId: String): FidcPermissionGetPermissionsResult {
-        return fidcPermissionService.getPermissions(
+        val permissionsResult = fidcPermissionService.getPermissions(
             FidcPermissionGetPermissionsParams(
                 partner = session.partner,
                 cpf = session.userInfo.cpf,
                 relationshipId = relationshipId
             )
         )
+        
+        if (permissionsResult.permissions.isEmpty()) {
+            throw SessionValidationException("Nenhuma permissão encontrada para o relacionamento selecionado")
+        }
+        
+        return permissionsResult
     }
     
     private fun updateSessionWithRelationship(
