@@ -1,5 +1,7 @@
 package com.banco.fidc.auth.usecase.session.impl
 
+import com.banco.fidc.auth.domain.session.entity.Relationship
+import com.banco.fidc.auth.domain.session.entity.Session
 import com.banco.fidc.auth.domain.session.repository.SessionRepository
 import com.banco.fidc.auth.shared.exception.BusinessException
 import com.banco.fidc.auth.shared.exception.InfrastructureException
@@ -10,6 +12,7 @@ import com.banco.fidc.auth.usecase.session.dto.output.SelectRelationshipOutput
 import com.banco.fidc.auth.usecase.session.dto.output.toSelectRelationshipOutput
 import com.banco.fidc.auth.usecase.session.dto.params.FidcPermissionGetPermissionsParams
 import com.banco.fidc.auth.usecase.session.dto.params.RateLimitCheckParams
+import com.banco.fidc.auth.usecase.session.dto.result.FidcPermissionGetPermissionsResult
 import com.banco.fidc.auth.usecase.session.exception.SessionNotFoundException
 import com.banco.fidc.auth.usecase.session.exception.SessionProcessingException
 import com.banco.fidc.auth.usecase.session.exception.SessionValidationException
@@ -35,76 +38,25 @@ class SelectRelationshipUseCaseImpl(
 
     @Transactional
     override fun execute(input: SelectRelationshipInput): SelectRelationshipOutput {
-        logger.info(
-            "Executando seleção de relacionamento: relationshipId=${input.relationshipId}, partner=${input.partner}"
-        )
+        logger.info("Executando seleção de relacionamento: relationshipId=${input.relationshipId}, partner=${input.partner}")
 
         try {
-            // 1. Validar partner
-            if (input.partner.isBlank()) {
-                throw SessionValidationException("Header partner é obrigatório")
-            }
-
-            // 2. Rate limiting
-            rateLimitService.checkRateLimit(
-                RateLimitCheckParams(
-                    clientIpAddress = input.clientIpAddress,
-                    userAgent = input.userAgent
-                )
-            )
-
-            // 3. Extrair sessionId do AccessToken
-            val sessionId = sessionValidationService.extractSessionIdFromToken(input.accessToken)
-            val sessionUuid = try {
-                UUID.fromString(sessionId)
-            } catch (e: IllegalArgumentException) {
-                throw SessionValidationException("Token de acesso contém sessionId inválido")
-            }
-
-            // 4. Buscar sessão no Redis
-            val session = sessionRepository.findBySessionId(sessionUuid)
-                ?: throw SessionNotFoundException("Sessão não encontrada ou expirada")
-
-            // 5. Validar partner da sessão
-            if (!session.partner.equals(input.partner, ignoreCase = true)) {
-                throw SessionValidationException("Partner não autorizado para esta sessão")
-            }
-
-            // 6. Validar assinatura e expiração do JWT usando sessionSecret da sessão
-            jwtSecretService.validateJwtTokenWithSecret(
-                input.accessToken,
-                session.sessionSecret
-            )
-
-            // 7. Buscar e validar relacionamento específico
-            val selectedRelationship = session.relationshipList.find { it.id == input.relationshipId }
-                ?: throw SessionValidationException("Relacionamento não encontrado na sessão")
+            validateInput(input)
+            checkRateLimit(input)
             
-            if (selectedRelationship.status != "ACTIVE") {
-                throw SessionValidationException("Relacionamento inativo")
-            }
-
-            // 8. Buscar permissões específicas do relacionamento
-            val permissionsResult = fidcPermissionService.getPermissions(
-                FidcPermissionGetPermissionsParams(
-                    partner = session.partner,
-                    cpf = session.userInfo.cpf,
-                    relationshipId = input.relationshipId
-                )
-            )
-
-            // 9. Atualizar sessão
-            session.selectRelationship(selectedRelationship)
-            session.updatePermissions(permissionsResult.permissions)
-
-            // 10. Atualizar sessão no Redis (preserva TTL)
-            sessionRepository.update(session)
-
+            val sessionId = extractSessionIdFromToken(input.accessToken)
+            val session = findAndValidateSession(sessionId, input.partner)
+            validateAccessToken(input.accessToken, session)
+            
+            val selectedRelationship = findAndValidateRelationship(session, input.relationshipId)
+            val permissionsResult = fetchRelationshipPermissions(session, input.relationshipId)
+            
+            updateSessionWithRelationship(session, selectedRelationship, permissionsResult)
+            persistUpdatedSession(session)
+            
             logger.info("Relacionamento selecionado com sucesso: sessionId=${session.sessionId}, relationshipId=${input.relationshipId}")
-
-            // 11. Reutilizar o AccessToken original (já validado)
-            return session.toSelectRelationshipOutput(input.accessToken)
-
+            return buildOutput(session, input.accessToken)
+            
         } catch (ex: InvalidSessionEnumException) {
             logger.error("Dados corrompidos encontrados no Redis durante seleção de relacionamento - Enum: ${ex.message}")
             throw SessionProcessingException("Erro interno do servidor - dados de sessão inconsistentes")
@@ -116,9 +68,84 @@ class SelectRelationshipUseCaseImpl(
             throw ex
         } catch (ex: Exception) {
             logger.error("Erro inesperado em seleção de relacionamento", ex)
-            throw SessionProcessingException(
-                "Erro ao processar seleção de relacionamento", ex
-            )
+            throw SessionProcessingException("Erro ao processar seleção de relacionamento", ex)
         }
+    }
+    
+    private fun validateInput(input: SelectRelationshipInput) {
+        if (input.partner.isBlank()) {
+            throw SessionValidationException("Header partner é obrigatório")
+        }
+    }
+    
+    private fun checkRateLimit(input: SelectRelationshipInput) {
+        rateLimitService.checkRateLimit(
+            RateLimitCheckParams(
+                clientIpAddress = input.clientIpAddress,
+                userAgent = input.userAgent
+            )
+        )
+    }
+    
+    private fun extractSessionIdFromToken(accessToken: String): UUID {
+        val sessionId = sessionValidationService.extractSessionIdFromToken(accessToken)
+        return try {
+            UUID.fromString(sessionId)
+        } catch (e: IllegalArgumentException) {
+            throw SessionValidationException("Token de acesso contém sessionId inválido")
+        }
+    }
+    
+    private fun findAndValidateSession(sessionId: UUID, partner: String): Session {
+        val session = sessionRepository.findBySessionId(sessionId)
+            ?: throw SessionNotFoundException("Sessão não encontrada ou expirada")
+            
+        if (!session.partner.equals(partner, ignoreCase = true)) {
+            throw SessionValidationException("Partner não autorizado para esta sessão")
+        }
+        
+        return session
+    }
+    
+    private fun validateAccessToken(accessToken: String, session: Session) {
+        jwtSecretService.validateJwtTokenWithSecret(accessToken, session.sessionSecret)
+    }
+    
+    private fun findAndValidateRelationship(session: Session, relationshipId: String): Relationship {
+        val selectedRelationship = session.relationshipList.find { it.id == relationshipId }
+            ?: throw SessionValidationException("Relacionamento não encontrado na sessão")
+        
+        if (selectedRelationship.status != "ACTIVE") {
+            throw SessionValidationException("Relacionamento inativo")
+        }
+        
+        return selectedRelationship
+    }
+    
+    private fun fetchRelationshipPermissions(session: Session, relationshipId: String): FidcPermissionGetPermissionsResult {
+        return fidcPermissionService.getPermissions(
+            FidcPermissionGetPermissionsParams(
+                partner = session.partner,
+                cpf = session.userInfo.cpf,
+                relationshipId = relationshipId
+            )
+        )
+    }
+    
+    private fun updateSessionWithRelationship(
+        session: Session, 
+        selectedRelationship: Relationship, 
+        permissionsResult: FidcPermissionGetPermissionsResult
+    ) {
+        session.selectRelationship(selectedRelationship)
+        session.updatePermissions(permissionsResult.permissions)
+    }
+    
+    private fun persistUpdatedSession(session: Session) {
+        sessionRepository.update(session)
+    }
+    
+    private fun buildOutput(session: Session, accessToken: String): SelectRelationshipOutput {
+        return session.toSelectRelationshipOutput(accessToken)
     }
 }

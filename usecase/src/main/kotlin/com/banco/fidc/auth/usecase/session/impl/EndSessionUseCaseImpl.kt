@@ -1,5 +1,6 @@
 package com.banco.fidc.auth.usecase.session.impl
 
+import com.banco.fidc.auth.domain.session.entity.Session
 import com.banco.fidc.auth.domain.session.repository.SessionRepository
 import com.banco.fidc.auth.domain.session.repository.UserSessionControlRepository
 import com.banco.fidc.auth.shared.exception.BusinessException
@@ -32,63 +33,26 @@ class EndSessionUseCaseImpl(
 
     @Transactional
     override fun execute(input: EndSessionInput) {
-        logger.info(
-            "Executando encerramento de sessão: partner=${input.partner}"
-        )
+        logger.info("Executando encerramento de sessão: partner=${input.partner}")
 
         try {
-            // 1. Validar headers obrigatórios
-            if (input.accessToken.isBlank()) {
-                throw SessionValidationException("Token de acesso obrigatório")
-            }
-
-            if (input.partner.isBlank()) {
-                throw SessionValidationException("Header partner é obrigatório")
-            }
-
-            // 2. Rate limiting
-            rateLimitService.checkRateLimit(
-                RateLimitCheckParams(
-                    clientIpAddress = input.clientIpAddress,
-                    userAgent = input.userAgent
-                )
-            )
-
-            // 3. Extrair sessionId do AccessToken
-            val sessionId = sessionValidationService.extractSessionIdFromToken(input.accessToken)
-            val sessionUuid = try {
-                UUID.fromString(sessionId)
-            } catch (e: IllegalArgumentException) {
-                throw SessionValidationException("Token de acesso contém sessionId inválido")
-            }
-
-            // 4. Buscar sessão no Redis
-            val session = sessionRepository.findBySessionId(sessionUuid)
+            validateInput(input)
+            checkRateLimit(input)
+            
+            val sessionId = extractSessionIdFromToken(input.accessToken)
+            val session = findSession(sessionId)
+            
             if (session == null) {
-                logger.info("Sessão não encontrada ou já expirada: sessionId=$sessionId")
-                return // Retorno vazio = 204 No Content (operação idempotente)
+                logger.info("Sessão não encontrada ou já expirada: sessionId=${sessionId}")
+                return
             }
-
-            // 5. Validar partner da sessão
-            if (!session.partner.equals(input.partner, ignoreCase = true)) {
-                throw SessionValidationException("Partner não autorizado para esta sessão")
-            }
-
-            // 6. Validar assinatura do JWT usando sessionSecret da sessão
-            try {
-                jwtSecretService.validateJwtTokenWithSecret(
-                    input.accessToken,
-                    session.sessionSecret
-                )
-            } catch (e: Exception) {
-                // Se token expirado, continuar com invalidação (comportamento normal)
-                logger.debug("Token pode estar expirado, continuando com invalidação da sessão")
-            }
-
-            // 7. Remover sessão atomicamente
-            removeSessionAtomically(sessionUuid, session.userInfo.cpf, session.partner)
-
-            logger.info("Sessão encerrada manualmente com sucesso: sessionId=$sessionId")
+            
+            validateSessionPartner(session, input.partner)
+            validateAccessTokenSafely(input.accessToken, session.sessionSecret)
+            
+            removeSessionAtomically(sessionId, session.userInfo.cpf, session.partner)
+            
+            logger.info("Sessão encerrada manualmente com sucesso: sessionId=${sessionId}")
 
         } catch (ex: InvalidSessionEnumException) {
             logger.error("Dados corrompidos encontrados no Redis durante encerramento de sessão - Enum: ${ex.message}")
@@ -107,33 +71,78 @@ class EndSessionUseCaseImpl(
         }
     }
 
+    private fun validateInput(input: EndSessionInput) {
+        if (input.accessToken.isBlank()) {
+            throw SessionValidationException("Token de acesso obrigatório")
+        }
+        
+        if (input.partner.isBlank()) {
+            throw SessionValidationException("Header partner é obrigatório")
+        }
+    }
+    
+    private fun checkRateLimit(input: EndSessionInput) {
+        rateLimitService.checkRateLimit(
+            RateLimitCheckParams(
+                clientIpAddress = input.clientIpAddress,
+                userAgent = input.userAgent
+            )
+        )
+    }
+    
+    private fun extractSessionIdFromToken(accessToken: String): UUID {
+        val sessionId = sessionValidationService.extractSessionIdFromToken(accessToken)
+        return try {
+            UUID.fromString(sessionId)
+        } catch (e: IllegalArgumentException) {
+            throw SessionValidationException("Token de acesso contém sessionId inválido")
+        }
+    }
+    
+    private fun findSession(sessionId: UUID) = sessionRepository.findBySessionId(sessionId)
+    
+    private fun validateSessionPartner(session: com.banco.fidc.auth.domain.session.entity.Session, partner: String) {
+        if (!session.partner.equals(partner, ignoreCase = true)) {
+            throw SessionValidationException("Partner não autorizado para esta sessão")
+        }
+    }
+    
+    private fun validateAccessTokenSafely(accessToken: String, sessionSecret: String) {
+        try {
+            jwtSecretService.validateJwtTokenWithSecret(accessToken, sessionSecret)
+        } catch (e: Exception) {
+            logger.debug("Token pode estar expirado, continuando com invalidação da sessão")
+        }
+    }
+    
     private fun removeSessionAtomically(sessionId: UUID, cpf: String, partner: String) {
-        // Remover do Redis
+        removeSessionFromRedis(sessionId)
+        updatePostgreSQLSession(sessionId, cpf, partner)
+    }
+    
+    private fun removeSessionFromRedis(sessionId: UUID) {
         try {
             sessionRepository.deleteBySessionId(sessionId)
-            logger.debug("Sessão removida do Redis: sessionId=$sessionId")
+            logger.debug("Sessão removida do Redis: sessionId=${sessionId}")
         } catch (ex: Exception) {
             logger.error("Erro ao remover sessão do Redis", ex)
-            throw SessionProcessingException(
-                "Serviço temporariamente indisponível", ex
-            )
+            throw SessionProcessingException("Serviço temporariamente indisponível", ex)
         }
-
-        // Atualizar PostgreSQL
+    }
+    
+    private fun updatePostgreSQLSession(sessionId: UUID, cpf: String, partner: String) {
         try {
             val userSessionControl = userSessionControlRepository.findByCpfAndPartner(cpf, partner)
             if (userSessionControl != null && userSessionControl.currentSessionId == sessionId) {
                 userSessionControl.deactivateSession()
                 userSessionControlRepository.save(userSessionControl)
-                logger.debug("Sessão desativada no PostgreSQL: sessionId=$sessionId")
+                logger.debug("Sessão desativada no PostgreSQL: sessionId=${sessionId}")
             } else {
-                logger.warn("Sessão não encontrada no PostgreSQL ou inconsistência detectada: sessionId=$sessionId")
+                logger.warn("Sessão não encontrada no PostgreSQL ou inconsistência detectada: sessionId=${sessionId}")
             }
         } catch (ex: Exception) {
             logger.error("Erro ao atualizar PostgreSQL", ex)
-            throw SessionProcessingException(
-                "Erro interno do servidor", ex
-            )
+            throw SessionProcessingException("Erro interno do servidor", ex)
         }
     }
 }
