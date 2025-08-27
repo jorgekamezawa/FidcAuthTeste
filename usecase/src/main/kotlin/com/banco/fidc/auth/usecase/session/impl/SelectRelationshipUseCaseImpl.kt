@@ -3,6 +3,7 @@ package com.banco.fidc.auth.usecase.session.impl
 import com.banco.fidc.auth.domain.session.repository.SessionRepository
 import com.banco.fidc.auth.shared.exception.BusinessException
 import com.banco.fidc.auth.shared.exception.InfrastructureException
+import com.banco.fidc.auth.shared.exception.InvalidSessionEnumException
 import com.banco.fidc.auth.usecase.session.SelectRelationshipUseCase
 import com.banco.fidc.auth.usecase.session.dto.input.SelectRelationshipInput
 import com.banco.fidc.auth.usecase.session.dto.output.SelectRelationshipOutput
@@ -35,7 +36,7 @@ class SelectRelationshipUseCaseImpl(
     @Transactional
     override fun execute(input: SelectRelationshipInput): SelectRelationshipOutput {
         logger.info(
-            "Executando seleção de relacionamento: relationshipId=${input.relationshipId}, partner=${input.partner}, correlationId=${input.correlationId}"
+            "Executando seleção de relacionamento: relationshipId=${input.relationshipId}, partner=${input.partner}"
         )
 
         try {
@@ -104,6 +105,9 @@ class SelectRelationshipUseCaseImpl(
             // 11. Reutilizar o AccessToken original (já validado)
             return session.toSelectRelationshipOutput(input.accessToken)
 
+        } catch (ex: InvalidSessionEnumException) {
+            logger.error("Dados corrompidos encontrados no Redis durante seleção de relacionamento - Enum: ${ex.message}")
+            throw SessionProcessingException("Erro interno do servidor - dados de sessão inconsistentes")
         } catch (ex: BusinessException) {
             logger.warn("Erro de negócio em seleção de relacionamento: ${ex.message}")
             throw ex

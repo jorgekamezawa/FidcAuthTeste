@@ -3,11 +3,11 @@ package com.banco.fidc.auth.domain.session.enum
 import com.banco.fidc.auth.shared.exception.InvalidSessionEnumException
 
 enum class SessionChannelEnum(
-    val code: String,
     val description: String
 ) {
-    WEB("W", "Web"),
-    MOBILE("M", "Mobile");
+    WEB("Web"),
+    MOBILE("Mobile"),
+    HELP_DESK("Help Desk");
     
     companion object {
         fun fromValue(value: String): SessionChannelEnum {
@@ -16,15 +16,13 @@ enum class SessionChannelEnum(
         }
         
         fun fromValueOrNull(value: String): SessionChannelEnum? {
-            return values().firstOrNull { 
-                it.name.equals(value, ignoreCase = true) || 
-                it.code.equals(value, ignoreCase = true)
+            return SessionChannelEnum.entries.firstOrNull {
+                it.name.equals(value, ignoreCase = true)
             }
         }
         
-        fun fromCode(code: String): SessionChannelEnum {
-            return values().firstOrNull { it.code == code }
-                ?: throw InvalidSessionEnumException(code, "SessionChannelEnum")
+        fun getAcceptedValues(): String {
+            return SessionChannelEnum.entries.joinToString(", ") { it.name }
         }
     }
     

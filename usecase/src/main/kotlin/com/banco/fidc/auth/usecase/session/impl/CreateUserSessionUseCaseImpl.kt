@@ -1,8 +1,6 @@
 package com.banco.fidc.auth.usecase.session.impl
 
-import com.banco.fidc.auth.domain.session.entity.Session
-import com.banco.fidc.auth.domain.session.entity.SessionAccessHistory
-import com.banco.fidc.auth.domain.session.entity.UserSessionControl
+import com.banco.fidc.auth.domain.session.entity.*
 import com.banco.fidc.auth.domain.session.enum.SessionChannelEnum
 import com.banco.fidc.auth.domain.session.repository.SessionRepository
 import com.banco.fidc.auth.domain.session.repository.UserSessionControlRepository
@@ -14,6 +12,8 @@ import com.banco.fidc.auth.usecase.session.dto.input.CreateUserSessionInput
 import com.banco.fidc.auth.usecase.session.dto.output.CreateUserSessionOutput
 import com.banco.fidc.auth.usecase.session.dto.params.*
 import com.banco.fidc.auth.usecase.session.dto.result.*
+import com.banco.fidc.auth.usecase.session.dto.common.*
+import java.util.UUID
 import com.banco.fidc.auth.usecase.session.exception.*
 import com.banco.fidc.auth.usecase.session.service.*
 import org.slf4j.LoggerFactory
@@ -40,101 +40,27 @@ class CreateUserSessionUseCaseImpl(
 
     @Transactional
     override fun execute(input: CreateUserSessionInput): CreateUserSessionOutput {
-        logger.info(
-            "Executando criação de sessão: partner=${input.partner}, channel=${input.channel}, correlationId=${input.correlationId}"
-        )
+        logger.info("Executando criação de sessão: partner=${input.partner}, channel=${input.channel}")
         
         try {
-            // 1. Rate limiting
-            rateLimitService.checkRateLimit(
-                RateLimitCheckParams(
-                    clientIpAddress = input.clientIpAddress,
-                    userAgent = input.userAgent
-                )
-            )
-            
-            // 2. Validar e extrair CPF do JWT
-            val cpf = sessionValidationService.extractCpfFromToken(input.signedData)
-            
-            // 3. Invalidar sessão anterior se existir
+            checkRateLimit(input)
+            val cpf = extractCpfFromSignedData(input.signedData)
             invalidatePreviousSession(cpf, input.partner)
             
-            // 4. Buscar dados do usuário
-            val userManagementResult = userManagementService.getUser(
-                UserManagementGetUserParams(
-                    partner = input.partner,
-                    cpf = cpf
-                )
-            )
+            val userManagementResult = fetchUserData(input.partner, cpf)
+            val permissionsResult = fetchUserPermissions(input.partner, cpf)
             
-            // 5. Buscar permissões gerais
-            val permissionsResult = fidcPermissionService.getPermissions(
-                FidcPermissionGetPermissionsParams(
-                    partner = input.partner,
-                    cpf = cpf,
-                    relationshipId = null
-                )
-            )
-            
-            // 6. Gerar dados necessários para a sessão  
-            val ttlMinutes = sessionConfigProvider.getTtlMinutes()
-            val sessionSecret = cryptographyService.generateSecureSessionSecret()
-            
-            // 7. Criar entidades de domínio
-            val sessionChannelEnum = SessionChannelEnum.valueOf(input.channel)
-            
-            val session = Session.create(
-                partner = input.partner,
-                userAgent = input.userAgent,
-                channel = sessionChannelEnum,
-                fingerprint = input.fingerprint,
-                userInfo = com.banco.fidc.auth.domain.session.entity.UserInfo(
-                    cpf = userManagementResult.userInfo.cpf,
-                    fullName = userManagementResult.userInfo.fullName,
-                    email = userManagementResult.userInfo.email,
-                    birthDate = userManagementResult.userInfo.birthDate,
-                    phoneNumber = userManagementResult.userInfo.phoneNumber
-                ),
-                fund = com.banco.fidc.auth.domain.session.entity.Fund(
-                    id = userManagementResult.fund.id,
-                    name = userManagementResult.fund.name,
-                    type = userManagementResult.fund.type
-                ),
-                relationshipList = userManagementResult.relationshipList.map {
-                    com.banco.fidc.auth.domain.session.entity.Relationship(
-                        id = it.id,
-                        type = it.type,
-                        name = it.name,
-                        status = it.status,
-                        contractNumber = it.contractNumber
-                    )
-                },
-                permissions = permissionsResult.permissions,
-                ttlMinutes = ttlMinutes,
-                sessionSecret = sessionSecret
-            )
-            
-            // 8. Persistir sessão atomicamente
+            val session = createSessionEntity(input, userManagementResult, permissionsResult)
             persistSessionAtomically(session, input)
             
-            // 9. Gerar access token usando dados da entidade
-            val accessToken = jwtSecretService.generateAccessToken(
-                sessionId = session.sessionId.toString(),
-                sessionSecret = session.sessionSecret,
-                expirationSeconds = (ttlMinutes * 60).toLong()
-            )
+            val accessToken = generateAccessToken(session)
             
-            // 10. Preparar resposta
             logger.info("Sessão criada com sucesso: sessionId=${session.sessionId}")
+            return buildSessionOutput(userManagementResult, permissionsResult, accessToken)
             
-            return CreateUserSessionOutput(
-                userInfo = userManagementResult.userInfo.toUserInfoData(),
-                fund = userManagementResult.fund.toFundData(),
-                relationshipList = userManagementResult.relationshipList.map { it.toRelationshipData() },
-                permissions = permissionsResult.permissions,
-                accessToken = accessToken
-            )
-            
+        } catch (ex: InvalidSessionEnumException) {
+            logger.warn("Channel inválido recebido na criação de sessão - Enum: SessionChannelEnum, Valor: '${input.channel}'")
+            throw InvalidInputException("Channel '${input.channel}' é incorreto. Valores aceitos: ${SessionChannelEnum.getAcceptedValues()}")
         } catch (ex: BusinessException) {
             logger.warn("Erro de negócio em criação de sessão: ${ex.message}")
             throw ex
@@ -147,6 +73,19 @@ class CreateUserSessionUseCaseImpl(
                 "Erro ao processar criação de sessão", ex
             )
         }
+    }
+    
+    private fun checkRateLimit(input: CreateUserSessionInput) {
+        rateLimitService.checkRateLimit(
+            RateLimitCheckParams(
+                clientIpAddress = input.clientIpAddress,
+                userAgent = input.userAgent
+            )
+        )
+    }
+    
+    private fun extractCpfFromSignedData(signedData: String): String {
+        return sessionValidationService.extractCpfFromToken(signedData)
     }
     
     private fun invalidatePreviousSession(cpf: String, partner: String) {
@@ -181,6 +120,75 @@ class CreateUserSessionUseCaseImpl(
             )
         }
     }
+    
+    private fun fetchUserData(partner: String, cpf: String): UserManagementGetUserResult {
+        return userManagementService.getUser(
+            UserManagementGetUserParams(
+                partner = partner,
+                cpf = cpf
+            )
+        )
+    }
+    
+    private fun fetchUserPermissions(partner: String, cpf: String): FidcPermissionGetPermissionsResult {
+        return fidcPermissionService.getPermissions(
+            FidcPermissionGetPermissionsParams(
+                partner = partner,
+                cpf = cpf,
+                relationshipId = null
+            )
+        )
+    }
+    
+    private fun createSessionEntity(
+        input: CreateUserSessionInput,
+        userManagementResult: UserManagementGetUserResult,
+        permissionsResult: FidcPermissionGetPermissionsResult
+    ): Session {
+        val ttlMinutes = sessionConfigProvider.getTtlMinutes()
+        val sessionSecret = cryptographyService.generateSecureSessionSecret()
+        val sessionChannelEnum = SessionChannelEnum.fromValue(input.channel)
+        
+        return Session.create(
+            partner = input.partner,
+            userAgent = input.userAgent,
+            channel = sessionChannelEnum,
+            fingerprint = input.fingerprint,
+            userInfo = mapToUserInfoEntity(userManagementResult.userInfo),
+            fund = mapToFundEntity(userManagementResult.fund),
+            relationshipList = mapToRelationshipEntities(userManagementResult.relationshipList),
+            permissions = permissionsResult.permissions,
+            ttlMinutes = ttlMinutes,
+            sessionSecret = sessionSecret
+        )
+    }
+    
+    private fun mapToUserInfoEntity(userInfo: UserInfoResult) = 
+        UserInfo(
+            cpf = userInfo.cpf,
+            fullName = userInfo.fullName,
+            email = userInfo.email,
+            birthDate = userInfo.birthDate,
+            phoneNumber = userInfo.phoneNumber
+        )
+    
+    private fun mapToFundEntity(fund: FundResult) = 
+        Fund(
+            id = fund.id,
+            name = fund.name,
+            type = fund.type
+        )
+    
+    private fun mapToRelationshipEntities(relationships: List<RelationshipResult>) = 
+        relationships.map {
+            Relationship(
+                id = it.id,
+                type = it.type,
+                name = it.name,
+                status = it.status,
+                contractNumber = it.contractNumber
+            )
+        }
     
     private fun persistSessionAtomically(session: Session, input: CreateUserSessionInput) {
         // Atualizar ou criar controle de sessão
@@ -229,5 +237,27 @@ class CreateUserSessionUseCaseImpl(
         sessionRepository.save(session)
         
         logger.debug("Sessão persistida atomicamente: sessionId=${session.sessionId}")
+    }
+    
+    private fun generateAccessToken(session: Session): String {
+        return jwtSecretService.generateAccessToken(
+            sessionId = session.sessionId.toString(),
+            sessionSecret = session.sessionSecret,
+            expirationSeconds = (session.ttlMinutes * 60).toLong()
+        )
+    }
+    
+    private fun buildSessionOutput(
+        userManagementResult: UserManagementGetUserResult,
+        permissionsResult: FidcPermissionGetPermissionsResult,
+        accessToken: String
+    ): CreateUserSessionOutput {
+        return CreateUserSessionOutput(
+            userInfo = userManagementResult.userInfo.toUserInfoData(),
+            fund = userManagementResult.fund.toFundData(),
+            relationshipList = userManagementResult.relationshipList.map { it.toRelationshipData() },
+            permissions = permissionsResult.permissions,
+            accessToken = accessToken
+        )
     }
 }

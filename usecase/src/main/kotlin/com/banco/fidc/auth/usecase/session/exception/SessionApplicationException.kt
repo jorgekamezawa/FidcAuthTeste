@@ -33,3 +33,7 @@ class SessionProcessingException(
 class SessionNotFoundException(
     message: String
 ) : SessionApplicationException(message)
+
+class InvalidInputException(
+    message: String
+) : SessionApplicationException(message)

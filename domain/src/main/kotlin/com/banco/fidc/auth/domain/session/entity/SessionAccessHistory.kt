@@ -107,12 +107,6 @@ class SessionAccessHistory private constructor(
             if (value.isBlank()) {
                 throw SessionValidationException("UserAgent não pode estar vazio")
             }
-            
-            if (value.length > SessionConstants.MAX_USER_AGENT_LENGTH) {
-                throw SessionValidationException(
-                    "UserAgent não pode ter mais de ${SessionConstants.MAX_USER_AGENT_LENGTH} caracteres"
-                )
-            }
         }
         
         private fun validateLocationData(

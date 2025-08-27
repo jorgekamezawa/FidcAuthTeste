@@ -160,102 +160,125 @@ interface [Ação][Entidade]UseCase {
 }
 ```
 
-#### Implementação do Use Case
+#### Implementação do Use Case (CLEAN CODE PATTERN)
 ```kotlin
 package [group].usecase.[contexto].impl
 
-import [group].domain.[contexto].entity.[Entidade]
+// IMPORTS ORGANIZADOS: entidades específicas importadas, não wildcards no código
+import [group].domain.[contexto].entity.*
 import [group].domain.[contexto].repository.[Entidade]Repository
-import [group].domain.[contexto].service.[Entidade]DomainService
 import [group].shared.exception.*
 import [group].usecase.[contexto].*
+import [group].usecase.[contexto].dto.input.[Ação][Entidade]Input
+import [group].usecase.[contexto].dto.output.[Ação][Entidade]Output
+import [group].usecase.[contexto].dto.params.*
+import [group].usecase.[contexto].dto.result.*
+import [group].usecase.[contexto].exception.*
+import [group].usecase.[contexto].service.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.util.UUID
 
 @Service
 class [Ação][Entidade]UseCaseImpl(
-    // Repositories
     private val [entidade]Repository: [Entidade]Repository,
-    
-    // Domain Services (se necessário)
-    private val [entidade]DomainService: [Entidade]DomainService,
-    
-    // Application Services
     private val [sistema]Service: [Sistema]Service,
     private val [contexto]ValidationService: [Contexto]ValidationService,
-    
-    // Config Providers
     private val [contexto]ConfigProvider: [Contexto]ConfigProvider
 ) : [Ação][Entidade]UseCase {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
+    // MÉTODO EXECUTE LIMPO: poucas linhas, sem comentários desnecessários
     @Transactional // Apenas se usar banco relacional com ACID
     override fun execute(input: [Ação][Entidade]Input): [Ação][Entidade]Output {
-        logger.info(
-            "Executando [ação] de [entidade]: [campo]=${input.[campo].mask[Tipo]()}"
-        )
+        logger.info("Executando [ação] de [entidade]: [campo]=${input.[campo]}")
         
         try {
-            // 1. Validações de entrada (não são regras de domínio)
             validateInput(input)
+            val externalData = fetchExternalData(input.[campo])
+            validateBusinessRules(input, externalData)
             
-            // 2. Buscar dados necessários
-            val externalData = [sistema]Service.fetch[Dados](
-                [Sistema][Operação]Params(
-                    [campo] = input.[campo]
-                )
-            )
+            val entity = createDomainEntity(input, externalData)
+            val savedEntity = persistEntity(entity)
             
-            // 3. Validações que envolvem múltiplos agregados/sistemas
-            [contexto]ValidationService.validate[Condição](
-                input.[campo],
-                externalData.[campo]
-            )
+            notifyExternalSystems(savedEntity)
             
-            // 4. Executar lógica de domínio
-            val entity = [Entidade].createNew(
-                [campo] = input.[campo],
-                [outrosCampos] = mapear(externalData)
-            )
+            logger.info("[Ação] de [entidade] concluída: id=${savedEntity.externalId}")
+            return buildOutput(savedEntity)
             
-            // 5. Persistir
-            val savedEntity = [entidade]Repository.save(entity)
-            
-            // 6. Executar efeitos colaterais (se houver)
-            [sistema]Service.notify[Evento](
-                [Sistema]Notify[Evento]Params(
-                    entityId = savedEntity.externalId,
-                    [outrosDados]
-                )
-            )
-            
-            // 7. Retornar resultado
-            logger.info("[[ação]] de [entidade] concluída: id=${savedEntity.externalId}")
-            
-            return [Ação][Entidade]Output(
-                [entidade]Id = savedEntity.externalId,
-                [outrosCampos] = mapearParaOutput(savedEntity)
-            )
-            
+        } catch (ex: InvalidSessionEnumException) {
+            logger.warn("[Contexto] enum inválido - Enum: [EnumType], Valor: '${input.[campo]}'")
+            throw InvalidInputException("[Campo] '${input.[campo]}' é incorreto. Valores aceitos: ${[Enum].getAcceptedValues()}")
         } catch (ex: BusinessException) {
-            logger.warn("Erro de negócio em [[ação][entidade]]: ${ex.message}")
+            logger.warn("Erro de negócio em [ação][entidade]: ${ex.message}")
             throw ex
         } catch (ex: InfrastructureException) {
             logger.error("Erro de infraestrutura [${ex.component}]: ${ex.message}", ex)
             throw ex
         } catch (ex: Exception) {
-            logger.error("Erro inesperado em [[ação][entidade]]", ex)
-            throw [Contexto]ApplicationException(
-                "Erro ao processar [[ação]] de [entidade]", ex
-            )
+            logger.error("Erro inesperado em [ação][entidade]", ex)
+            throw [Contexto]ProcessingException("Erro ao processar [ação] de [entidade]", ex)
         }
     }
     
+    // MÉTODOS NA ORDEM DE EXECUÇÃO: seguem exatamente a sequência do execute()
     private fun validateInput(input: [Ação][Entidade]Input) {
         // Validações que não são regras de domínio
-        // Ex: formato de dados, ranges, etc
+    }
+    
+    private fun fetchExternalData(campo: String): [Sistema][Operação]Result {
+        return [sistema]Service.fetch[Dados](
+            [Sistema][Operação]Params(campo = campo)
+        )
+    }
+    
+    private fun validateBusinessRules(
+        input: [Ação][Entidade]Input, 
+        externalData: [Sistema][Operação]Result
+    ) {
+        [contexto]ValidationService.validate[Condição](
+            input.[campo],
+            externalData.[campo]
+        )
+    }
+    
+    private fun createDomainEntity(
+        input: [Ação][Entidade]Input,
+        externalData: [Sistema][Operação]Result
+    ): [Entidade] {
+        return [Entidade].createNew(
+            [campo] = input.[campo],
+            [dadosExternal] = mapToEntityData(externalData)
+        )
+    }
+    
+    private fun mapToEntityData(data: [Sistema][Operação]Result): [EntityData] {
+        return [EntityData](
+            [campo] = data.[campo],
+            [outrosCampos] = data.[outrosCampos]
+        )
+    }
+    
+    private fun persistEntity(entity: [Entidade]): [Entidade] {
+        return [entidade]Repository.save(entity)
+    }
+    
+    private fun notifyExternalSystems(savedEntity: [Entidade]) {
+        [sistema]Service.notify[Evento](
+            [Sistema]Notify[Evento]Params(
+                entityId = savedEntity.externalId
+            )
+        )
+    }
+    
+    private fun buildOutput(savedEntity: [Entidade]): [Ação][Entidade]Output {
+        return [Ação][Entidade]Output(
+            [entidade]Id = savedEntity.externalId,
+            [status] = savedEntity.status.name,
+            [timestamp] = savedEntity.createdAt
+        )
     }
 }
 ```
@@ -498,13 +521,55 @@ class [Contexto]ProcessingException(
 6. **Gere services concretos** para lógica de aplicação
 7. **Use artifacts separados** por contexto/use case
 
+## 🧹 PADRÕES DE CLEAN CODE OBRIGATÓRIOS
+
+### Organização da Classe Use Case
+1. **Método `execute()` SEMPRE primeiro**: Método principal deve ser o primeiro da classe
+2. **Métodos na ordem de execução**: Métodos privados devem seguir exatamente a ordem que são chamados no `execute()`
+3. **Poucas linhas no execute()**: Se exceder, extrair métodos com nomes descritivos
+4. **Sem comentários desnecessários**: Código deve ser autoexplicativo
+
+### Padrão de Imports
+```kotlin
+// ✅ CORRETO: Imports organizados
+import [group].domain.[contexto].entity.*
+import [group].usecase.[contexto].dto.input.[Ação][Entidade]Input
+import [group].usecase.[contexto].exception.*
+
+// ❌ ERRADO: Nomes completos no código
+val userInfo = com.banco.fidc.auth.domain.session.entity.UserInfo(...)
+```
+
+### Tratamento de Exceções Específico
+```kotlin
+// ✅ CORRETO: Tratamento específico para enums inválidos
+} catch (ex: Invalid[Contexto]EnumException) {
+    logger.warn("[Contexto] enum inválido - Enum: [EnumType], Valor: '${input.[campo]}'")
+    throw InvalidInputException("[Campo] '${input.[campo]}' é incorreto. Valores aceitos: ${[Enum].getAcceptedValues()}")
+
+// ✅ CORRETO: Logs diretos, sem métodos auxiliares para logs simples  
+logger.info("Executando [ação] de [entidade]: [campo]=${input.[campo]}")
+logger.info("[Ação] de [entidade] concluída: id=${savedEntity.externalId}")
+```
+
+### Extração de Métodos
+- **Nomes descritivos**: `fetchExternalData()`, `validateBusinessRules()`, `createDomainEntity()`
+- **Responsabilidade única**: Cada método faz uma coisa específica
+- **Ordem lógica**: Métodos aparecem na ordem que são chamados
+- **Sem correlationId**: Não incluir nos logs (não está no input)
+
+### Integração com Domain Layer
+- **Coleções mutáveis**: Entidades de domínio devem usar `MutableList` internamente e expor `List` publicamente
+- **Enums dinâmicos**: Use `getAcceptedValues()` para mensagens de erro dinâmicas
+- **Tratamento específico**: Capture `InvalidSessionEnumException` e converta para mensagem amigável
+
 ## ⚠️ PONTOS DE ATENÇÃO
 
 ### Use Cases
 - **Orquestram, não decidem**: Regras ficam no domain
-- **Método único execute()**: Command Pattern
+- **Método único execute()**: Command Pattern limpo e conciso
 - **Transactional criterioso**: Apenas bancos relacionais
-- **Logging com mascaramento**: Dados sensíveis
+- **Logging sem dados sensíveis**: Mascaramento quando necessário
 
 ### DTOs
 - **Sem valores default**: Explicitação sempre
@@ -532,6 +597,14 @@ class [Contexto]ProcessingException(
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
+
+#### v1.1.0 - CLEAN CODE PATTERNS
+- **Padrões Clean Code obrigatórios** para use cases
+- **Organização de métodos**: execute() primeiro, métodos na ordem de execução
+- **Imports limpos**: sem wildcards no código, imports específicos
+- **Tratamento de exceções**: específico para enums inválidos
+- **Integração domain**: coleções mutáveis e enums dinâmicos
+- **Logs simplificados**: sem métodos auxiliares desnecessários
 
 #### v1.0.0
 - Versão inicial do APPLICATION-LAYER

@@ -2,10 +2,9 @@ package com.banco.fidc.auth.domain.session.entity
 
 import com.banco.fidc.auth.domain.session.enum.SessionChannelEnum
 import com.banco.fidc.auth.shared.exception.SessionValidationException
-import com.banco.fidc.auth.shared.constants.SessionConstants
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 class Session private constructor(
     private var _sessionId: UUID,
@@ -18,9 +17,9 @@ class Session private constructor(
     private var _sessionSecret: String,
     private var _userInfo: UserInfo,
     private var _fund: Fund,
-    private var _relationshipList: List<Relationship>,
+    private var _relationshipList: MutableList<Relationship>,
     private var _relationshipsSelected: Relationship?,
-    private var _permissions: List<String>,
+    private var _permissions: MutableList<String>,
     private var _ttlMinutes: Int
 ) {
     val sessionId: UUID get() = _sessionId
@@ -37,7 +36,7 @@ class Session private constructor(
     val relationshipsSelected: Relationship? get() = _relationshipsSelected
     val permissions: List<String> get() = _permissions.toList()
     val ttlMinutes: Int get() = _ttlMinutes
-    
+
     companion object {
         fun create(
             partner: String,
@@ -54,10 +53,10 @@ class Session private constructor(
             validatePartner(partner)
             validateUserAgent(userAgent)
             validateFingerprint(fingerprint)
-            
+
             val now = LocalDateTime.now()
             val sessionId = UUID.randomUUID()
-            
+
             return Session(
                 _sessionId = sessionId,
                 _createdAt = now,
@@ -69,13 +68,13 @@ class Session private constructor(
                 _sessionSecret = sessionSecret,
                 _userInfo = userInfo,
                 _fund = fund,
-                _relationshipList = relationshipList.toList(),
+                _relationshipList = relationshipList.toMutableList(),
                 _relationshipsSelected = null,
-                _permissions = permissions.toList(),
+                _permissions = permissions.toMutableList(),
                 _ttlMinutes = ttlMinutes
             )
         }
-        
+
         fun reconstruct(
             sessionId: UUID,
             createdAt: LocalDateTime,
@@ -103,77 +102,60 @@ class Session private constructor(
                 _sessionSecret = sessionSecret,
                 _userInfo = userInfo,
                 _fund = fund,
-                _relationshipList = relationshipList.toList(),
+                _relationshipList = relationshipList.toMutableList(),
                 _relationshipsSelected = relationshipsSelected,
-                _permissions = permissions.toList(),
+                _permissions = permissions.toMutableList(),
                 _ttlMinutes = ttlMinutes
             )
         }
-        
+
         private fun validatePartner(value: String) {
             if (value.isBlank()) {
                 throw SessionValidationException("Partner não pode estar vazio")
             }
-            
-            if (value.length > SessionConstants.MAX_PARTNER_LENGTH) {
-                throw SessionValidationException(
-                    "Partner não pode ter mais de ${SessionConstants.MAX_PARTNER_LENGTH} caracteres"
-                )
-            }
         }
-        
+
         private fun validateUserAgent(value: String) {
             if (value.isBlank()) {
                 throw SessionValidationException("UserAgent não pode estar vazio")
             }
-            
-            if (value.length > SessionConstants.MAX_USER_AGENT_LENGTH) {
-                throw SessionValidationException(
-                    "UserAgent não pode ter mais de ${SessionConstants.MAX_USER_AGENT_LENGTH} caracteres"
-                )
-            }
         }
-        
+
         private fun validateFingerprint(value: String) {
             if (value.isBlank()) {
                 throw SessionValidationException("Fingerprint não pode estar vazio")
             }
-            
-            if (value.length > SessionConstants.MAX_FINGERPRINT_LENGTH) {
-                throw SessionValidationException(
-                    "Fingerprint não pode ter mais de ${SessionConstants.MAX_FINGERPRINT_LENGTH} caracteres"
-                )
-            }
         }
     }
-    
+
     fun selectRelationship(relationship: Relationship) {
         if (!_relationshipList.any { it.id == relationship.id }) {
             throw SessionValidationException(
                 "Relacionamento ${relationship.id} não existe na lista de relacionamentos da sessão"
             )
         }
-        
+
         _relationshipsSelected = relationship
         _updatedAt = LocalDateTime.now()
     }
-    
+
     fun updatePermissions(newPermissions: List<String>) {
-        _permissions = newPermissions
+        _permissions.clear()
+        _permissions.addAll(newPermissions)
         _updatedAt = LocalDateTime.now()
     }
-    
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Session) return false
         return _sessionId == other._sessionId
     }
-    
+
     override fun hashCode(): Int = _sessionId.hashCode()
-    
+
     override fun toString(): String {
         return "Session(sessionId=$_sessionId, partner=$_partner, " +
-               "channel=${_channel.description}, cpf=${_userInfo.cpf.take(3)}***)"
+                "channel=${_channel.description}, cpf=${_userInfo.cpf.take(3)}***)"
     }
 }
 

@@ -4,6 +4,7 @@ import com.banco.fidc.auth.domain.session.repository.SessionRepository
 import com.banco.fidc.auth.domain.session.repository.UserSessionControlRepository
 import com.banco.fidc.auth.shared.exception.BusinessException
 import com.banco.fidc.auth.shared.exception.InfrastructureException
+import com.banco.fidc.auth.shared.exception.InvalidSessionEnumException
 import com.banco.fidc.auth.usecase.session.EndSessionUseCase
 import com.banco.fidc.auth.usecase.session.dto.input.EndSessionInput
 import com.banco.fidc.auth.usecase.session.dto.params.RateLimitCheckParams
@@ -32,7 +33,7 @@ class EndSessionUseCaseImpl(
     @Transactional
     override fun execute(input: EndSessionInput) {
         logger.info(
-            "Executando encerramento de sessão: partner=${input.partner}, correlationId=${input.correlationId}"
+            "Executando encerramento de sessão: partner=${input.partner}"
         )
 
         try {
@@ -89,6 +90,9 @@ class EndSessionUseCaseImpl(
 
             logger.info("Sessão encerrada manualmente com sucesso: sessionId=$sessionId")
 
+        } catch (ex: InvalidSessionEnumException) {
+            logger.error("Dados corrompidos encontrados no Redis durante encerramento de sessão - Enum: ${ex.message}")
+            throw SessionProcessingException("Erro interno do servidor - dados de sessão inconsistentes")
         } catch (ex: BusinessException) {
             logger.warn("Erro de negócio em encerramento de sessão: ${ex.message}")
             throw ex

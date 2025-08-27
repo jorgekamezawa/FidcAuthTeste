@@ -110,12 +110,6 @@ class UserSessionControl private constructor(
             if (value.isBlank()) {
                 throw UserSessionControlValidationException("Partner não pode estar vazio")
             }
-            
-            if (value.length > SessionConstants.MAX_PARTNER_LENGTH) {
-                throw UserSessionControlValidationException(
-                    "Partner não pode ter mais de ${SessionConstants.MAX_PARTNER_LENGTH} caracteres"
-                )
-            }
         }
     }
     
