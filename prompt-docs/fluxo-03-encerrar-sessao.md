@@ -73,28 +73,25 @@ Body: (vazio)
 * **Extrair sessionId:** Da claim "sessionId" do JWT
 * **Se sessionId ausente:** Retornar erro 401 "Token de acesso inválido"
 
-### 3. Buscar Sessão e Validar Contexto
-* **Buscar sessão no Redis:** Chave `session:{sessionId}`
+### 3. Buscar Sessão e Validar Partner
+* **Buscar sessão no Redis:** Usando sessionId extraído do token
 * **Se sessão não encontrada:** Retornar 204 (operação idempotente - sessão já encerrada/expirada)
+* **Validar partner da sessão:** Verificar se o partner da sessão coincide com o partner do header (case-insensitive)
+* **Se partners diferentes:** Retornar erro 403 "Partner não autorizado para esta sessão"
 * **Extrair sessionSecret:** Da sessão encontrada no Redis
 * **Validar assinatura JWT:** Usando sessionSecret específico da sessão
 * **Se ExpiredJwtException (token expirado):** Continuar com invalidação da sessão (comportamento normal)
 * **Se SignatureException (assinatura inválida):** Retornar erro 401 "Token de acesso com assinatura inválida"
 * **Se MalformedJwtException (token malformado):** Retornar erro 400 "Token de acesso malformado"
 
-### 4. Validação do Partner
-* **Extrair partner da sessão:** Campo "partner" dos dados da sessão no Redis
-* **Comparar partners:** Header partner vs partner da sessão
-* **Se partners diferentes:** Retornar erro 403 "Partner não autorizado para esta sessão"
-
-### 5. Remoção da Sessão (Operação Atômica)
+### 4. Remoção da Sessão (Operação Atômica)
 * **Remover do Redis:** Deletar chave `session:{sessionId}`
 * **Se erro no Redis:** Retornar erro 503 "Serviço temporariamente indisponível"
 * **Atualizar PostgreSQL:** Buscar por current_session_id e marcar is_active = false
 * **Se erro no PostgreSQL:** Retornar erro 500 "Erro interno do servidor"
 * **Se sessão não encontrada no PostgreSQL:** Continuar normalmente (inconsistência será resolvida pelo job de limpeza)
 
-### 6. Resposta Final
+### 5. Resposta Final
 * **Retornar 204:** Sem conteúdo (sessão encerrada com sucesso)
 * **Log INFO:** Sessão encerrada manualmente pelo usuário
 

@@ -35,11 +35,16 @@ class SelectRelationshipUseCaseImpl(
     @Transactional
     override fun execute(input: SelectRelationshipInput): SelectRelationshipOutput {
         logger.info(
-            "Executando seleção de relacionamento: relationshipId=${input.relationshipId}, correlationId=${input.correlationId}"
+            "Executando seleção de relacionamento: relationshipId=${input.relationshipId}, partner=${input.partner}, correlationId=${input.correlationId}"
         )
 
         try {
-            // 1. Rate limiting
+            // 1. Validar partner
+            if (input.partner.isBlank()) {
+                throw SessionValidationException("Header partner é obrigatório")
+            }
+
+            // 2. Rate limiting
             rateLimitService.checkRateLimit(
                 RateLimitCheckParams(
                     clientIpAddress = input.clientIpAddress,
@@ -47,7 +52,7 @@ class SelectRelationshipUseCaseImpl(
                 )
             )
 
-            // 2. Extrair sessionId do AccessToken
+            // 3. Extrair sessionId do AccessToken
             val sessionId = sessionValidationService.extractSessionIdFromToken(input.accessToken)
             val sessionUuid = try {
                 UUID.fromString(sessionId)
@@ -55,17 +60,22 @@ class SelectRelationshipUseCaseImpl(
                 throw SessionValidationException("Token de acesso contém sessionId inválido")
             }
 
-            // 3. Buscar sessão no Redis
+            // 4. Buscar sessão no Redis
             val session = sessionRepository.findBySessionId(sessionUuid)
                 ?: throw SessionNotFoundException("Sessão não encontrada ou expirada")
 
-            // 4. Validar assinatura e expiração do JWT usando sessionSecret da sessão
+            // 5. Validar partner da sessão
+            if (!session.partner.equals(input.partner, ignoreCase = true)) {
+                throw SessionValidationException("Partner não autorizado para esta sessão")
+            }
+
+            // 6. Validar assinatura e expiração do JWT usando sessionSecret da sessão
             jwtSecretService.validateJwtTokenWithSecret(
                 input.accessToken,
                 session.sessionSecret
             )
 
-            // 5. Buscar e validar relacionamento específico
+            // 7. Buscar e validar relacionamento específico
             val selectedRelationship = session.relationshipList.find { it.id == input.relationshipId }
                 ?: throw SessionValidationException("Relacionamento não encontrado na sessão")
             
@@ -73,7 +83,7 @@ class SelectRelationshipUseCaseImpl(
                 throw SessionValidationException("Relacionamento inativo")
             }
 
-            // 6. Buscar permissões específicas do relacionamento
+            // 8. Buscar permissões específicas do relacionamento
             val permissionsResult = fidcPermissionService.getPermissions(
                 FidcPermissionGetPermissionsParams(
                     partner = session.partner,
@@ -82,16 +92,16 @@ class SelectRelationshipUseCaseImpl(
                 )
             )
 
-            // 7. Atualizar sessão
+            // 9. Atualizar sessão
             session.selectRelationship(selectedRelationship)
             session.updatePermissions(permissionsResult.permissions)
 
-            // 8. Atualizar sessão no Redis (preserva TTL)
+            // 10. Atualizar sessão no Redis (preserva TTL)
             sessionRepository.update(session)
 
             logger.info("Relacionamento selecionado com sucesso: sessionId=${session.sessionId}, relationshipId=${input.relationshipId}")
 
-            // 9. Reutilizar o AccessToken original (já validado)
+            // 11. Reutilizar o AccessToken original (já validado)
             return session.toSelectRelationshipOutput(input.accessToken)
 
         } catch (ex: BusinessException) {

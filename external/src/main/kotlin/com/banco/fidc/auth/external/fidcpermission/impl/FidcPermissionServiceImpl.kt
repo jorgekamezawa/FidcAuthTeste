@@ -41,90 +41,136 @@ class FidcPermissionServiceImpl(
         return response?.toResult() ?: FidcPermissionGetPermissionsResult(emptyList())
     }
 
-    // MOCK: 3 CENÁRIOS DIFERENTES - REMOVER QUANDO A API ESTIVER PRONTA  
+    // MOCK: BASEADO EM PARTNER, CPF E RELATIONSHIP - REMOVER QUANDO A API ESTIVER PRONTA
+    // 
+    // REGRAS DO MOCK (ALINHADO COM UserManagementService):
+    // 1. Partners suportados: "prevcom" e "caio" (case-insensitive)
+    // 2. CPF terminando em 4 ou 5: simula usuário sem permissões
+    // 3. Qualquer outro partner: simula partner sem permissões
+    // 4. relationshipId = null: permissões gerais (menos permissões)
+    // 5. relationshipId preenchido: permissões específicas (mais permissões)
+    //
+    // RELATIONSHIPS VÁLIDOS:
+    // PREVCOM: REL001 (Plano Básico), REL002 (Plano Premium)
+    // CAIO: REL003 (Conta Investimentos Master)
+    //
     private fun getMockPermissions(params: FidcPermissionGetPermissionsParams): FidcPermissionGetPermissionsResult {
         logger.warn("USANDO DADOS MOCKADOS - FidcPermission API não disponível ainda")
         
+        // Regra 1: CPF terminando em 4 ou 5 = sem permissões (simula casos de erro)
+        if (params.cpf.endsWith("4") || params.cpf.endsWith("5")) {
+            logger.debug("Mock: CPF termina em 4 ou 5, retornando sem permissões")
+            return FidcPermissionGetPermissionsResult(emptyList())
+        }
+        
+        // Regra 2: Apenas partners "prevcom" e "caio" têm permissões
         return when (params.partner.lowercase()) {
-            "prevcom" -> createPrevcomPermissions(params)
-            "caio" -> createCaioPermissions(params)
-            else -> createDefaultPermissions(params)
+            "prevcom" -> {
+                logger.debug("Mock: Retornando permissões do partner PREVCOM, relationshipId=${params.relationshipId}")
+                createPrevcomPermissions(params)
+            }
+            "caio" -> {
+                logger.debug("Mock: Retornando permissões do partner CAIO, relationshipId=${params.relationshipId}")
+                createCaioPermissions(params)
+            }
+            else -> {
+                logger.debug("Mock: Partner '${params.partner}' sem permissões")
+                FidcPermissionGetPermissionsResult(emptyList())
+            }
         }
     }
     
+    // MOCK: Dados específicos para o partner PREVCOM (Previdência)
     private fun createPrevcomPermissions(params: FidcPermissionGetPermissionsParams): FidcPermissionGetPermissionsResult {
         val permissions = if (params.relationshipId == null) {
-            // Permissões gerais para PREVCOM
+            // Permissões gerais PREVCOM (sem relationship selecionado)
             listOf(
                 "VIEW_PROFILE",
-                "VIEW_STATEMENTS", 
-                "VIEW_PLAN_DETAILS",
-                "VIEW_CONTRIBUTIONS",
-                "DOWNLOAD_DOCUMENTS",
-                "UPDATE_PERSONAL_DATA",
-                "REQUEST_PORTABILITY"
+                "VIEW_PLAN_SUMMARY",
+                "DOWNLOAD_BASIC_DOCUMENTS"
             )
         } else {
-            // Permissões específicas por relacionamento
-            listOf(
-                "VIEW_PROFILE",
-                "VIEW_STATEMENTS",
-                "VIEW_PLAN_DETAILS", 
-                "VIEW_CONTRIBUTIONS",
-                "DOWNLOAD_DOCUMENTS",
-                "UPDATE_PERSONAL_DATA",
-                "REQUEST_PORTABILITY",
-                "MANAGE_PLAN_CONTRIBUTIONS",
-                "REQUEST_PLAN_CHANGES"
-            )
+            // Permissões específicas por relacionamento PREVCOM
+            when (params.relationshipId) {
+                "REL001" -> {
+                    // REL001 - Plano Previdência Básico (menos permissões)
+                    listOf(
+                        "VIEW_PROFILE",
+                        "VIEW_PLAN_SUMMARY",
+                        "DOWNLOAD_BASIC_DOCUMENTS",
+                        "VIEW_PLAN_DETAILS",
+                        "VIEW_CONTRIBUTIONS_HISTORY",
+                        "DOWNLOAD_PLAN_STATEMENT"
+                    )
+                }
+                "REL002" -> {
+                    // REL002 - Plano Previdência Premium (mais permissões)
+                    listOf(
+                        "VIEW_PROFILE",
+                        "VIEW_PLAN_SUMMARY", 
+                        "DOWNLOAD_BASIC_DOCUMENTS",
+                        "VIEW_PLAN_DETAILS",
+                        "VIEW_CONTRIBUTIONS_HISTORY",
+                        "DOWNLOAD_PLAN_STATEMENT",
+                        "UPDATE_BENEFICIARIES",
+                        "REQUEST_LOAN",
+                        "MANAGE_PLAN_CONTRIBUTIONS",
+                        "REQUEST_PLAN_CHANGES",
+                        "VIEW_INVESTMENT_OPTIONS"
+                    )
+                }
+                else -> {
+                    // Relationship não encontrado - permissões básicas
+                    logger.debug("Mock: RelationshipId '${params.relationshipId}' não encontrado para PREVCOM")
+                    listOf(
+                        "VIEW_PROFILE",
+                        "VIEW_PLAN_SUMMARY"
+                    )
+                }
+            }
         }
         
         return FidcPermissionGetPermissionsResult(permissions)
     }
     
+    // MOCK: Dados específicos para o partner CAIO (Investimentos)
     private fun createCaioPermissions(params: FidcPermissionGetPermissionsParams): FidcPermissionGetPermissionsResult {
         val permissions = if (params.relationshipId == null) {
-            // Permissões gerais para CAIO
+            // Permissões gerais CAIO (sem relationship selecionado)
             listOf(
                 "VIEW_PROFILE",
-                "VIEW_CONTRACTS",
-                "CREATE_SIMULATION",
-                "VIEW_INVESTMENT_PORTFOLIO",
-                "DOWNLOAD_REPORTS"
+                "VIEW_PORTFOLIO_SUMMARY",
+                "DOWNLOAD_BASIC_REPORTS"
             )
         } else {
-            // Permissões específicas por relacionamento
-            listOf(
-                "VIEW_PROFILE",
-                "VIEW_CONTRACTS",
-                "CREATE_SIMULATION",
-                "VIEW_INVESTMENT_PORTFOLIO",
-                "DOWNLOAD_REPORTS",
-                "EXECUTE_OPERATIONS",
-                "MANAGE_INVESTMENTS",
-                "TRANSFER_FUNDS"
-            )
-        }
-        
-        return FidcPermissionGetPermissionsResult(permissions)
-    }
-    
-    private fun createDefaultPermissions(params: FidcPermissionGetPermissionsParams): FidcPermissionGetPermissionsResult {
-        val permissions = if (params.relationshipId == null) {
-            // Permissões básicas para outros partners
-            listOf(
-                "VIEW_PROFILE",
-                "VIEW_BASIC_DATA",
-                "DOWNLOAD_DOCUMENTS"
-            )
-        } else {
-            // Permissões específicas por relacionamento
-            listOf(
-                "VIEW_PROFILE",
-                "VIEW_BASIC_DATA", 
-                "DOWNLOAD_DOCUMENTS",
-                "VIEW_RELATIONSHIP_DETAILS"
-            )
+            // Permissões específicas por relacionamento CAIO
+            when (params.relationshipId) {
+                "REL003" -> {
+                    // REL003 - Conta Investimentos Master (permissões completas)
+                    listOf(
+                        "VIEW_PROFILE",
+                        "VIEW_PORTFOLIO_SUMMARY",
+                        "DOWNLOAD_BASIC_REPORTS",
+                        "VIEW_INVESTMENT_DETAILS",
+                        "VIEW_TRANSACTION_HISTORY",
+                        "DOWNLOAD_DETAILED_REPORTS",
+                        "CREATE_INVESTMENT_SIMULATION",
+                        "EXECUTE_BUY_ORDERS",
+                        "EXECUTE_SELL_ORDERS",
+                        "TRANSFER_BETWEEN_FUNDS",
+                        "MANAGE_AUTOMATIC_INVESTMENTS",
+                        "REQUEST_INVESTMENT_ADVICE"
+                    )
+                }
+                else -> {
+                    // Relationship não encontrado - permissões básicas
+                    logger.debug("Mock: RelationshipId '${params.relationshipId}' não encontrado para CAIO")
+                    listOf(
+                        "VIEW_PROFILE",
+                        "VIEW_PORTFOLIO_SUMMARY"
+                    )
+                }
+            }
         }
         
         return FidcPermissionGetPermissionsResult(permissions)

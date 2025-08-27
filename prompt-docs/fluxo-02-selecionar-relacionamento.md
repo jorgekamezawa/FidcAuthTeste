@@ -10,6 +10,7 @@
 
 ### Headers Obrigatórios:
 - `authorization` (Bearer {accessToken} do FLUXO 1)
+- `partner` (Identificador do partner - deve coincidir com o partner da sessão)
 - `relationshipId` (ID do relacionamento a ser selecionado)
 
 ### Headers Opcionais:
@@ -85,8 +86,9 @@
 ```
 
 ### Códigos de Erro:
-- **400**: Header relationshipId ausente, relacionamento não encontrado na sessão
+- **400**: Header partner/relationshipId ausente, relacionamento não encontrado na sessão
 - **401**: AccessToken inválido, expirado ou malformado
+- **403**: Partner não autorizado para esta sessão
 - **404**: Sessão não encontrada no Redis
 - **429**: Rate limit excedido
 - **500**: Erro interno (integração, Redis)
@@ -100,6 +102,9 @@
 ## 📋 Regras de Negócio:
 
 ### 1. Validações de Entrada
+* **Header partner:** Verificar presença do header partner
+* **Se header partner ausente:** Retornar erro 400 "Header partner é obrigatório"
+* **Se partner vazio:** Retornar erro 400 "Partner não pode estar vazio"
 * **Rate limiting:** Verificar limites por IP e User-Agent
 * **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
 * **Header Authorization:** Verificar presença do Bearer token
@@ -115,9 +120,11 @@
 * **Extrair sessionId:** Da claim "sessionId" do JWT
 * **Se sessionId ausente:** Retornar erro 401 "Token de acesso inválido"
 
-### 3. Buscar Sessão e Validar Assinatura
+### 3. Buscar Sessão e Validar Partner
 * **Buscar sessão no Redis:** Chave `session:{sessionId}`
 * **Se sessão não encontrada:** Retornar erro 404 "Sessão não encontrada ou expirada"
+* **Validar partner da sessão:** Verificar se o partner da sessão coincide com o partner do header (case-insensitive)
+* **Se partner não coincide:** Retornar erro 403 "Partner não autorizado para esta sessão"
 * **Extrair sessionSecret:** Da sessão encontrada no Redis
 * **Validar assinatura JWT:** Usando sessionSecret específico da sessão
 * **Se assinatura inválida:** Retornar erro 401 "Token de acesso inválido"

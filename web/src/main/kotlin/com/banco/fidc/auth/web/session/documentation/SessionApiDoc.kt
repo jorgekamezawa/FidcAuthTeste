@@ -130,7 +130,8 @@ interface SessionApiDoc {
 
     @Operation(
         summary = "Select relationship",
-        description = "Selects a specific relationship, fetches contextual permissions and updates session"
+        description = "Selects a specific relationship, fetches contextual permissions and updates session. " +
+                "The partner header must match the partner of the current session for security validation."
     )
     @ApiResponses(value = [
         ApiResponse(
@@ -181,11 +182,21 @@ interface SessionApiDoc {
             content = [Content(
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [ExampleObject(
+                    name = "Missing relationshipId header",
                     value = """{
                         "timestamp": "2025-08-22T14:45:32",
                         "status": 400,
                         "error": "Bad Request",
                         "message": "Header relationshipId é obrigatório",
+                        "path": "/v1/sessions/relationship"
+                    }"""
+                ), ExampleObject(
+                    name = "Missing partner header",
+                    value = """{
+                        "timestamp": "2025-08-22T14:45:32",
+                        "status": 400,
+                        "error": "Bad Request",
+                        "message": "Header partner é obrigatório",
                         "path": "/v1/sessions/relationship"
                     }"""
                 )]
@@ -195,6 +206,22 @@ interface SessionApiDoc {
             responseCode = "401",
             description = "Unauthorized - Invalid or expired access token",
             content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - Partner not authorized for this session",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    value = """{
+                        "timestamp": "2025-08-22T14:45:32",
+                        "status": 403,
+                        "error": "Forbidden",
+                        "message": "Partner não autorizado para esta sessão",
+                        "path": "/v1/sessions/relationship"
+                    }"""
+                )]
+            )]
         ),
         ApiResponse(
             responseCode = "404",
@@ -216,6 +243,9 @@ interface SessionApiDoc {
         @Parameter(description = "Bearer token from session creation", required = true)
         @RequestHeader("authorization") authorization: String,
         
+        @Parameter(description = "Partner identifier (must match session partner)", required = true)
+        @RequestHeader("partner") partner: String,
+        
         @Parameter(description = "ID of relationship to select", required = true)
         @RequestHeader("relationshipId") relationshipId: String,
         
@@ -227,7 +257,8 @@ interface SessionApiDoc {
 
     @Operation(
         summary = "End session",
-        description = "Ends the active user session, invalidating the AccessToken and clearing session state. This operation is idempotent."
+        description = "Ends the active user session, invalidating the AccessToken and clearing session state. " +
+                "The partner header must match the partner of the session being terminated. This operation is idempotent."
     )
     @ApiResponses(value = [
         ApiResponse(

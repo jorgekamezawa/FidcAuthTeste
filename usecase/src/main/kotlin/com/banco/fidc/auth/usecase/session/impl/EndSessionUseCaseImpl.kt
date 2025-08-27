@@ -68,7 +68,12 @@ class EndSessionUseCaseImpl(
                 return // Retorno vazio = 204 No Content (operação idempotente)
             }
 
-            // 5. Validar assinatura do JWT usando sessionSecret da sessão
+            // 5. Validar partner da sessão
+            if (!session.partner.equals(input.partner, ignoreCase = true)) {
+                throw SessionValidationException("Partner não autorizado para esta sessão")
+            }
+
+            // 6. Validar assinatura do JWT usando sessionSecret da sessão
             try {
                 jwtSecretService.validateJwtTokenWithSecret(
                     input.accessToken,
@@ -77,11 +82,6 @@ class EndSessionUseCaseImpl(
             } catch (e: Exception) {
                 // Se token expirado, continuar com invalidação (comportamento normal)
                 logger.debug("Token pode estar expirado, continuando com invalidação da sessão")
-            }
-
-            // 6. Validar partner
-            if (!session.partner.equals(input.partner, ignoreCase = true)) {
-                throw SessionValidationException("Partner não autorizado para esta sessão")
             }
 
             // 7. Remover sessão atomicamente

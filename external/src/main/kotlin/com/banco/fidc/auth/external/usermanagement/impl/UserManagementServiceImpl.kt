@@ -42,18 +42,48 @@ class UserManagementServiceImpl(
         return response.toResult()
     }
 
-    // MOCK: 3 EXEMPLOS DIFERENTES - REMOVER QUANDO A API ESTIVER PRONTA
+    // MOCK: BASEADO EM PARTNER E CPF - REMOVER QUANDO A API ESTIVER PRONTA
+    // 
+    // REGRAS DO MOCK:
+    // 1. Partners suportados: "prevcom" e "caio" (case-insensitive)
+    // 2. CPF terminando em 4 ou 5: simula usuário não encontrado
+    // 3. Qualquer outro partner: simula partner não encontrado
+    // 4. CPF com outros finais + partner válido: retorna dados mockados específicos
+    //
+    // EXEMPLOS:
+    // - getUser(cpf="12345678901", partner="prevcom") → dados PREVCOM ✅
+    // - getUser(cpf="12345678902", partner="caio") → dados CAIO ✅
+    // - getUser(cpf="12345678904", partner="prevcom") → UserManagementException ❌
+    // - getUser(cpf="12345678901", partner="itau") → UserManagementException ❌
+    //
     private fun getMockUserData(params: UserManagementGetUserParams): UserManagementGetUserResult {
         logger.warn("USANDO DADOS MOCKADOS - UserManagement API não disponível ainda")
         
-        return when {
-            params.cpf.endsWith("1") -> createMockUser1(params)
-            params.cpf.endsWith("2") -> createMockUser2(params)
-            else -> createMockUser3(params)
+        // Regra 1: CPF terminando em 4 ou 5 = usuário não encontrado (simula casos de erro)
+        if (params.cpf.endsWith("4") || params.cpf.endsWith("5")) {
+            logger.debug("Mock: CPF termina em 4 ou 5, simulando usuário não encontrado")
+            throw UserManagementException("Usuário não encontrado")
+        }
+        
+        // Regra 2: Apenas partners "prevcom" e "caio" têm dados mockados
+        return when (params.partner.lowercase()) {
+            "prevcom" -> {
+                logger.debug("Mock: Retornando dados do partner PREVCOM")
+                createPrevcomUser(params)
+            }
+            "caio" -> {
+                logger.debug("Mock: Retornando dados do partner CAIO")
+                createCaioUser(params)
+            }
+            else -> {
+                logger.debug("Mock: Partner '${params.partner}' não encontrado")
+                throw UserManagementException("Partner não encontrado")
+            }
         }
     }
     
-    private fun createMockUser1(params: UserManagementGetUserParams): UserManagementGetUserResult {
+    // MOCK: Dados específicos para o partner PREVCOM (Previdência)
+    private fun createPrevcomUser(params: UserManagementGetUserParams): UserManagementGetUserResult {
         return UserManagementGetUserResult(
             userInfo = com.banco.fidc.auth.usecase.session.dto.result.UserInfoResult(
                 cpf = params.cpf,
@@ -63,8 +93,8 @@ class UserManagementServiceImpl(
                 phoneNumber = "+5511999887766"
             ),
             fund = com.banco.fidc.auth.usecase.session.dto.result.FundResult(
-                id = "CRED001",
-                name = "Prevcom RS",
+                id = "PREVCOM001",
+                name = "Prevcom Previdência RS",
                 type = "PREVIDENCIA"
             ),
             relationshipList = listOf(
@@ -86,7 +116,8 @@ class UserManagementServiceImpl(
         )
     }
     
-    private fun createMockUser2(params: UserManagementGetUserParams): UserManagementGetUserResult {
+    // MOCK: Dados específicos para o partner CAIO (Investimentos)
+    private fun createCaioUser(params: UserManagementGetUserParams): UserManagementGetUserResult {
         return UserManagementGetUserResult(
             userInfo = com.banco.fidc.auth.usecase.session.dto.result.UserInfoResult(
                 cpf = params.cpf,
@@ -96,8 +127,8 @@ class UserManagementServiceImpl(
                 phoneNumber = "+5511888776655"
             ),
             fund = com.banco.fidc.auth.usecase.session.dto.result.FundResult(
-                id = "CRED002",
-                name = "CAIO Investimentos",
+                id = "CAIO001",
+                name = "CAIO Fundo de Investimento",
                 type = "INVESTIMENTO"
             ),
             relationshipList = listOf(
@@ -107,46 +138,6 @@ class UserManagementServiceImpl(
                     name = "Conta Investimentos Master",
                     status = "ACTIVE",
                     contractNumber = "567890123456789"
-                )
-            )
-        )
-    }
-    
-    private fun createMockUser3(params: UserManagementGetUserParams): UserManagementGetUserResult {
-        return UserManagementGetUserResult(
-            userInfo = com.banco.fidc.auth.usecase.session.dto.result.UserInfoResult(
-                cpf = params.cpf,
-                fullName = "Carlos Eduardo Lima",
-                email = "carlos.lima@teste.com",
-                birthDate = LocalDate.of(1978, 12, 5),
-                phoneNumber = "+5511777665544"
-            ),
-            fund = com.banco.fidc.auth.usecase.session.dto.result.FundResult(
-                id = "CRED003",
-                name = "Fundo Misto",
-                type = "MISTO"
-            ),
-            relationshipList = listOf(
-                com.banco.fidc.auth.usecase.session.dto.result.RelationshipResult(
-                    id = "REL004",
-                    type = "CONTA_CORRENTE",
-                    name = "Conta Empresarial",
-                    status = "ACTIVE", 
-                    contractNumber = "789012345678901"
-                ),
-                com.banco.fidc.auth.usecase.session.dto.result.RelationshipResult(
-                    id = "REL005",
-                    type = "CONTA_POUPANCA",
-                    name = "Poupança Gold",
-                    status = "ACTIVE",
-                    contractNumber = "890123456789012"
-                ),
-                com.banco.fidc.auth.usecase.session.dto.result.RelationshipResult(
-                    id = "REL006",
-                    type = "FINANCIAMENTO",
-                    name = "Financiamento Imobiliário",
-                    status = "SUSPENDED",
-                    contractNumber = "901234567890123"
                 )
             )
         )

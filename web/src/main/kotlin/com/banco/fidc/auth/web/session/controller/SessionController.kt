@@ -80,6 +80,7 @@ class SessionController(
     @ResponseStatus(HttpStatus.OK)
     override fun selectRelationship(
         @RequestHeader("authorization") authorization: String,
+        @RequestHeader("partner") partner: String,
         @RequestHeader("relationshipId") relationshipId: String,
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
         httpRequest: HttpServletRequest
@@ -88,17 +89,19 @@ class SessionController(
         val userAgent = httpRequest.getHeader("user-agent") ?: "unknown"
         
         logger.info(
-            "Received selectRelationship request: relationshipId=${relationshipId}, correlationId=${finalCorrelationId}"
+            "Received selectRelationship request: relationshipId=${relationshipId}, partner=${partner}, correlationId=${finalCorrelationId}"
         )
 
         // Validações de header obrigatórios
         require(authorization.isNotBlank()) { "Header 'authorization' cannot be empty" }
+        require(partner.isNotBlank()) { "Header 'partner' cannot be empty" }
         require(relationshipId.isNotBlank()) { "Header 'relationshipId' cannot be empty" }
 
         val clientIpAddress = httpRequest.getClientIp()
         val input = SelectRelationshipInput(
             accessToken = authorization,
             relationshipId = relationshipId,
+            partner = partner,
             clientIpAddress = clientIpAddress,
             userAgent = userAgent,
             correlationId = finalCorrelationId
