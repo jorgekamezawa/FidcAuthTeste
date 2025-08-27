@@ -47,6 +47,8 @@ Representantes de empresas parceiras (Prevcom, CAIO) que acessam o portal para g
 - ✅ **Rate limiting** defensivo (20 req/min por IP)
 - ✅ **Fallback multi-nível** para secrets JWT
 - ✅ **Observabilidade** com métricas e traces
+- ✅ **Indexação otimizada** no Redis para busca rápida por CPF
+- ✅ **Chaves estruturadas** no Redis: `fidc:session:{partner}:{sessionId}`
 
 ## 🏗️ Arquitetura
 
@@ -75,6 +77,27 @@ fidc-auth/
 - **Redis**: Sessões ativas e cache de secrets
 - **PostgreSQL**: Controle de unicidade e auditoria
 - **AWS Secret Manager**: Secret JWT compartilhada
+
+### Modelo de Dados Redis
+O Redis utiliza um padrão estruturado de chaves para otimizar buscas:
+
+**Sessões Ativas:**
+```
+fidc:session:{partner}:{sessionId}
+```
+Exemplo: `fidc:session:prevcom:123e4567-e89b-12d3-a456-426614174000`
+
+**Índice por CPF:**
+```
+fidc:cpf_index:{cpf}:{partner} → {sessionId}
+```
+Exemplo: `fidc:cpf_index:12345678901:prevcom → "123e4567-e89b-12d3-a456-426614174000"`
+
+Este modelo permite:
+- ✅ Busca direta por sessionId + partner (O(1))
+- ✅ Busca otimizada por CPF + partner via índice (O(1))
+- ✅ TTL automático sincronizado entre sessão e índice
+- ✅ Namespace organizado por contexto de negócio
 
 ## 🚀 Começando
 
@@ -152,10 +175,12 @@ AWS_ENDPOINT=http://localhost:4566
 - `user-agent` (para rate limiting)
 - `channel` (WEB, MOBILE, etc.)
 - `fingerprint` (identificação do dispositivo)
-- `latitude` (localização GPS)
-- `longitude` (localização GPS)
-- `location-accuracy` (precisão em metros)
-- `location-timestamp` (timestamp da localização)
+
+### Headers Opcionais de Geolocalização
+- `latitude` (localização GPS - salvo como null se não fornecido)
+- `longitude` (localização GPS - salvo como null se não fornecido)
+- `location-accuracy` (precisão em metros - salvo como null se não fornecido)
+- `location-timestamp` (timestamp da localização - salvo como null se não fornecido)
 
 ### Documentação Interativa
 

@@ -150,22 +150,35 @@ class CreateUserSessionUseCaseImpl(
     }
     
     private fun invalidatePreviousSession(cpf: String, partner: String) {
-        val existingControl = userSessionControlRepository.findByCpfAndPartner(cpf, partner)
-        
-        if (existingControl != null && existingControl.isActive) {
-            logger.info("Invalidando sessão anterior: sessionId=${existingControl.currentSessionId}")
+        try {
+            // Buscar sessão anterior diretamente no Redis usando o índice de CPF
+            val existingSession = sessionRepository.findByCpfAndPartner(cpf, partner)
             
-            try {
-                existingControl.currentSessionId?.let { sessionId ->
-                    sessionRepository.deleteBySessionId(sessionId)
-                    logger.debug("Sessão anterior removida do cache")
+            if (existingSession != null) {
+                logger.info("Invalidando sessão anterior encontrada no Redis: sessionId=${existingSession.sessionId}")
+                
+                // Remover sessão do Redis (que também limpa o índice)
+                sessionRepository.deleteBySessionId(existingSession.sessionId)
+                logger.debug("Sessão anterior removida do Redis com sucesso")
+                
+                // Atualizar controle de sessão no banco para marcar como inativa
+                val existingControl = userSessionControlRepository.findByCpfAndPartner(cpf, partner)
+                existingControl?.let { control ->
+                    if (control.isActive && control.currentSessionId == existingSession.sessionId) {
+                        control.deactivateSession()
+                        userSessionControlRepository.save(control)
+                        logger.debug("Controle de sessão atualizado no banco")
+                    }
                 }
-            } catch (ex: Exception) {
-                logger.error("Erro ao invalidar sessão anterior no cache", ex)
-                throw SessionProcessingException(
-                    "Erro ao invalidar sessão anterior", ex
-                )
+            } else {
+                logger.debug("Nenhuma sessão anterior encontrada no Redis para cpf=${cpf.take(3)}***, partner=$partner")
             }
+            
+        } catch (ex: Exception) {
+            logger.error("Erro ao invalidar sessão anterior", ex)
+            throw SessionProcessingException(
+                "Erro ao invalidar sessão anterior", ex
+            )
         }
     }
     
@@ -197,10 +210,17 @@ class CreateUserSessionUseCaseImpl(
             sessionId = session.sessionId,
             ipAddress = ipAddress,
             userAgent = input.userAgent,
-            latitude = input.latitude.toDoubleOrNull(),
-            longitude = input.longitude.toDoubleOrNull(),
-            locationAccuracy = input.locationAccuracy.toIntOrNull(),
-            locationTimestamp = java.time.LocalDateTime.parse(input.locationTimestamp)
+            latitude = input.latitude?.toDoubleOrNull(),
+            longitude = input.longitude?.toDoubleOrNull(),
+            locationAccuracy = input.locationAccuracy?.toIntOrNull(),
+            locationTimestamp = input.locationTimestamp?.let { 
+                try {
+                    java.time.LocalDateTime.parse(it)
+                } catch (e: Exception) {
+                    logger.warn("Error parsing locationTimestamp: $it", e)
+                    null
+                }
+            }
         )
         
         sessionAccessHistoryRepository.save(accessHistory)

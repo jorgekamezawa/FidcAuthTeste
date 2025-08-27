@@ -20,10 +20,10 @@ fun CreateUserSessionRequest.toInput(
     userAgent: String,
     channel: String,
     fingerprint: String,
-    latitude: String,
-    longitude: String,
-    locationAccuracy: String,
-    locationTimestamp: String,
+    latitude: String?,
+    longitude: String?,
+    locationAccuracy: String?,
+    locationTimestamp: String?,
     correlationId: String,
     clientIpAddress: String
 ): CreateUserSessionInput {

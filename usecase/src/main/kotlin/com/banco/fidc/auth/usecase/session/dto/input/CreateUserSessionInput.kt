@@ -6,10 +6,10 @@ data class CreateUserSessionInput(
     val userAgent: String,
     val channel: String,
     val fingerprint: String,
-    val latitude: String,
-    val longitude: String,
-    val locationAccuracy: String,
-    val locationTimestamp: String,
+    val latitude: String?,
+    val longitude: String?,
+    val locationAccuracy: String?,
+    val locationTimestamp: String?,
     val correlationId: String,
     val clientIpAddress: String
 )

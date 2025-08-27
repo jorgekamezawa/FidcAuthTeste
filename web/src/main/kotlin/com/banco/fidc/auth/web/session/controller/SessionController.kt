@@ -38,10 +38,10 @@ class SessionController(
         @RequestHeader("user-agent") userAgent: String,
         @RequestHeader("channel") channel: String,
         @RequestHeader("fingerprint") fingerprint: String,
-        @RequestHeader("latitude") latitude: String,
-        @RequestHeader("longitude") longitude: String,
-        @RequestHeader("location-accuracy") locationAccuracy: String,
-        @RequestHeader("location-timestamp") locationTimestamp: String,
+        @RequestHeader("latitude", required = false) latitude: String?,
+        @RequestHeader("longitude", required = false) longitude: String?,
+        @RequestHeader("location-accuracy", required = false) locationAccuracy: String?,
+        @RequestHeader("location-timestamp", required = false) locationTimestamp: String?,
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
         httpRequest: HttpServletRequest
     ): CreateUserSessionResponse {
@@ -55,10 +55,6 @@ class SessionController(
         require(userAgent.isNotBlank()) { "Header 'user-agent' cannot be empty" }
         require(channel.isNotBlank()) { "Header 'channel' cannot be empty" }
         require(fingerprint.isNotBlank()) { "Header 'fingerprint' cannot be empty" }
-        require(latitude.isNotBlank()) { "Header 'latitude' cannot be empty" }
-        require(longitude.isNotBlank()) { "Header 'longitude' cannot be empty" }
-        require(locationAccuracy.isNotBlank()) { "Header 'location-accuracy' cannot be empty" }
-        require(locationTimestamp.isNotBlank()) { "Header 'location-timestamp' cannot be empty" }
 
         val clientIpAddress = httpRequest.getClientIp()
         val input = request.toInput(

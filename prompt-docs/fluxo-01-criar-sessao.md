@@ -13,12 +13,12 @@
 - `user-agent` (para rate limiting)
 - `channel` (WEB, MOBILE, etc.)
 - `fingerprint` (identificação do dispositivo)
-- `latitude` (localização GPS)
-- `longitude` (localização GPS)
-- `location-accuracy` (precisão da localização em metros)
-- `location-timestamp` (timestamp da captura da localização)
 
 ### Headers Opcionais:
+- `latitude` (localização GPS - se não informado, será salvo como nulo)
+- `longitude` (localização GPS - se não informado, será salvo como nulo)
+- `location-accuracy` (precisão da localização em metros - se não informado, será salvo como nulo)
+- `location-timestamp` (timestamp da captura da localização - se não informado, será salvo como nulo)
 - `x-correlation-id` (gerado automaticamente se ausente)
 
 ### Headers Automáticos (para rate limiting):

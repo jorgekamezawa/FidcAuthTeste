@@ -110,17 +110,17 @@ interface SessionApiDoc {
         @Parameter(description = "Device fingerprint", required = true)
         @RequestHeader("fingerprint") fingerprint: String,
         
-        @Parameter(description = "User location latitude", required = true)
-        @RequestHeader("latitude") latitude: String,
+        @Parameter(description = "User location latitude (optional - saved as null if not provided)", required = false)
+        @RequestHeader("latitude", required = false) latitude: String?,
         
-        @Parameter(description = "User location longitude", required = true)
-        @RequestHeader("longitude") longitude: String,
+        @Parameter(description = "User location longitude (optional - saved as null if not provided)", required = false)
+        @RequestHeader("longitude", required = false) longitude: String?,
         
-        @Parameter(description = "Location accuracy in meters", required = true)
-        @RequestHeader("location-accuracy") locationAccuracy: String,
+        @Parameter(description = "Location accuracy in meters (optional - saved as null if not provided)", required = false)
+        @RequestHeader("location-accuracy", required = false) locationAccuracy: String?,
         
-        @Parameter(description = "Location timestamp in ISO format", required = true)
-        @RequestHeader("location-timestamp") locationTimestamp: String,
+        @Parameter(description = "Location timestamp in ISO format (optional - saved as null if not provided)", required = false)
+        @RequestHeader("location-timestamp", required = false) locationTimestamp: String?,
         
         @Parameter(description = "Tracking correlation ID", required = false)
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
