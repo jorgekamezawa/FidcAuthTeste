@@ -253,7 +253,7 @@ class SessionRepositoryImpl(
                             matches = false
                         }
                         
-                        if (filter.partner != null && session.partner != filter.partner) {
+                        if (filter.partner != null && !session.partner.equals(filter.partner, ignoreCase = true)) {
                             matches = false
                         }
                         
@@ -329,11 +329,11 @@ class SessionRepositoryImpl(
     }
 
     private fun generateSessionKey(partner: String, sessionId: UUID): String {
-        return "$SESSION_KEY_PREFIX:$partner:$sessionId"
+        return "$SESSION_KEY_PREFIX:${partner.lowercase()}:$sessionId"
     }
     
     private fun generateCpfIndexKey(cpf: String, partner: String): String {
-        return "$CPF_INDEX_KEY_PREFIX:${cpf}:${partner}"
+        return "$CPF_INDEX_KEY_PREFIX:${cpf}:${partner.lowercase()}"
     }
     
     private fun createCpfIndex(cpf: String, partner: String, sessionId: UUID, ttlMinutes: Long) {

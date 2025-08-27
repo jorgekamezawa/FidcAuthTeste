@@ -80,7 +80,7 @@ class EndSessionUseCaseImpl(
             }
 
             // 6. Validar partner
-            if (session.partner != input.partner) {
+            if (!session.partner.equals(input.partner, ignoreCase = true)) {
                 throw SessionValidationException("Partner não autorizado para esta sessão")
             }
 

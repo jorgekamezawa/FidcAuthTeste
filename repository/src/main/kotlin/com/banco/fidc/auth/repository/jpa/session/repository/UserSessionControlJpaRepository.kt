@@ -16,9 +16,11 @@ interface UserSessionControlJpaRepository : JpaRepository<UserSessionControlJpaE
     
     fun existsByUuid(uuid: UUID): Boolean
     
-    fun findByCpfAndPartner(cpf: String, partner: String): UserSessionControlJpaEntity?
+    @Query("SELECT u FROM UserSessionControlJpaEntity u WHERE u.cpf = :cpf AND LOWER(u.partner) = LOWER(:partner)")
+    fun findByCpfAndPartner(@Param("cpf") cpf: String, @Param("partner") partner: String): UserSessionControlJpaEntity?
     
-    fun existsByCpfAndPartner(cpf: String, partner: String): Boolean
+    @Query("SELECT COUNT(u) > 0 FROM UserSessionControlJpaEntity u WHERE u.cpf = :cpf AND LOWER(u.partner) = LOWER(:partner)")
+    fun existsByCpfAndPartner(@Param("cpf") cpf: String, @Param("partner") partner: String): Boolean
     
     fun findByCpfAndIsActiveTrue(cpf: String): List<UserSessionControlJpaEntity>
     
@@ -29,7 +31,7 @@ interface UserSessionControlJpaRepository : JpaRepository<UserSessionControlJpaE
     @Query("""
         SELECT u FROM UserSessionControlJpaEntity u 
         WHERE (:cpf IS NULL OR u.cpf = :cpf)
-        AND (:partner IS NULL OR u.partner = :partner)
+        AND (:partner IS NULL OR LOWER(u.partner) = LOWER(:partner))
         AND (:isActive IS NULL OR u.isActive = :isActive)
         AND (:firstAccessFrom IS NULL OR u.firstAccessAt >= :firstAccessFrom)
         AND (:firstAccessTo IS NULL OR u.firstAccessAt <= :firstAccessTo)
