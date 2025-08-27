@@ -12,6 +12,8 @@ optional: false
 
 Você irá implementar a camada Presentation (módulo web) responsável por expor APIs REST, documentar endpoints, validar requisições e converter entre DTOs da web (Request/Response) e da aplicação (Input/Output). Esta camada segue o padrão de Controllers finos sem lógica de negócio.
 
+**IMPORTANTE**: CorrelationId é capturado automaticamente pelo `CorrelationIdFilter` e incluído em todos os logs via MDC. NUNCA repassar para use cases.
+
 ## 📋 PRÉ-REQUISITOS
 
 Antes de iniciar:
@@ -417,11 +419,15 @@ interface [Nome]ApiDoc {
         @Parameter(description = "[Descrição do header]", required = true)
         @RequestHeader("[header-name]") [headerName]: String,
         
-        [SE TIVER HEADERS OPCIONAIS]
-        @Parameter(description = "Tracking ID", required = false)
+        [SE TIVER USER-AGENT (SEMPRE OBRIGATÓRIO)]
+        @Parameter(description = "User agent string from client", required = true)
+        @RequestHeader("user-agent") userAgent: String,
+        
+        [SE TIVER HEADERS OPCIONAIS PARA DOCUMENTAÇÃO]
+        @Parameter(description = "Tracking correlation ID (managed by CorrelationIdFilter)", required = false)
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
         
-        [SE PRECISAR DE IP/DADOS DA REQUEST]
+        [SE PRECISAR DE IP DO CLIENTE]
         @Parameter(hidden = true) httpRequest: HttpServletRequest
     ): [Ação][Recurso]Response
 }
@@ -454,31 +460,31 @@ class [Nome]Controller(
         @Valid @RequestBody request: [Ação][Recurso]Request,
         [SE TIVER HEADERS OBRIGATÓRIOS]
         @RequestHeader("[header-name]") [headerName]: String,
-        [SE TIVER HEADERS OPCIONAIS]
+        [SE TIVER USER-AGENT]
+        @RequestHeader("user-agent") userAgent: String,
+        [SE TIVER CORRELATION ID APENAS PARA DOCUMENTAÇÃO]
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
-        httpRequest: HttpServletRequest
+        [SE PRECISAR IP]httpRequest: HttpServletRequest
     ): [Ação][Recurso]Response {
-        val finalCorrelationId = correlationId ?: "not-provided"
-        logger.info(
-            "Received [ação] request: [headerName]=${[headerName]}, correlationId=${finalCorrelationId}"
-        )
+        logger.info("Received [ação] request: [headerName]=${[headerName]}")
 
-        [SE TIVER HEADERS OBRIGATÓRIOS]
-        // Additional validation - Spring doesn't validate empty strings
+        // Validação de headers obrigatórios - Spring não valida strings vazias
         require([headerName].isNotBlank()) { "Header '[header-name]' cannot be empty" }
+        require(userAgent.isNotBlank()) { "Header 'user-agent' cannot be empty" }
 
         [SE PRECISAR IP DO CLIENTE]
         val clientIpAddress = httpRequest.getClientIp()
         
         val input = request.toInput(
-            [SE HEADER FAZ PARTE DO INPUT][headerName] = [headerName],
-            [SE PRECISAR CORRELATION ID]correlationId = finalCorrelationId,
+            [headerName] = [headerName],
+            userAgent = userAgent,
             [SE PRECISAR IP]clientIpAddress = clientIpAddress
+            // NUNCA incluir correlationId - gerenciado pelo CorrelationIdFilter
         )
         val output = [ação][Recurso]UseCase.execute(input)
         val response = output.toResponse()
 
-        logger.info("[Ação] completed successfully: correlationId=${finalCorrelationId}")
+        logger.info("[Ação] completed successfully")
         return response
     }
 }
@@ -533,13 +539,19 @@ data class [Ação][Recurso]Request(
     val [numero]: Int
 )
 
-// Mapper as extension function
-fun [Ação][Recurso]Request.toInput([parametrosAdicionais]): [Ação][Recurso]Input {
+// Mapper as extension function - NUNCA incluir correlationId
+fun [Ação][Recurso]Request.toInput(
+    [headerParam]: String,
+    userAgent: String,
+    [SE PRECISAR]clientIpAddress: String
+): [Ação][Recurso]Input {
     return [Ação][Recurso]Input(
         [campo] = this.[campo],
         [campoOpcional] = this.[campoOpcional],
-        [SE RECEBER PARÂMETROS ADICIONAIS]
-        [headerParam] = [headerParam]
+        [headerParam] = [headerParam],
+        userAgent = userAgent,
+        [SE PRECISAR]clientIpAddress = clientIpAddress
+        // NUNCA incluir correlationId - gerenciado automaticamente
     )
 }
 ```
@@ -680,13 +692,27 @@ class [Contexto]ExceptionHandler {
    - Documentação separada
    - Mappers como extension functions
 
+## 🚫 REGRAS OBRIGATÓRIAS DO CORRELATIONID
+
+### CorrelationId Management
+- **NUNCA repassar correlationId** para use cases ou DTOs de input
+- **CorrelationIdFilter captura automaticamente** do header `x-correlation-id`
+- **MDC inclui automaticamente** em todos os logs via SLF4J
+- **Manter header apenas para documentação** da API (não usar no código)
+- **Logs automaticamente incluem correlationId** sem intervenção manual
+
+### Headers Obrigatórios
+- **user-agent**: SEMPRE obrigatório e mapeado como `@RequestHeader`
+- **NUNCA pegar headers do HttpServletRequest** exceto para IP do cliente
+- **HttpServletRequest**: Usar apenas para `getClientIp()` quando necessário
+
 ## ⚠️ PONTOS DE ATENÇÃO
 
 ### Controllers
 - **Thin controllers**: Sem lógica de negócio
 - **Implementam interfaces**: Documentação separada
 - **Validação adicional**: Headers vazios (Spring não valida)
-- **Logging apropriado**: INFO para fluxo, sem dados sensíveis
+- **Logging limpo**: Sem correlationId manual (automático via MDC)
 
 ### DTOs
 - **Request/Response**: Diferentes de Input/Output
@@ -707,7 +733,8 @@ class [Contexto]ExceptionHandler {
 - **Tags organizadas**: Por contexto de negócio
 
 ### Padrões da Empresa
-- **Correlation ID**: Já existe no filter (INITIAL-SETUP)
+- **Correlation ID**: Gerenciado pelo CorrelationIdFilter, NUNCA repassar manualmente
+- **User-Agent**: Sempre obrigatório via @RequestHeader
 - **No JsonProperty**: Apenas quando nome diferente
 - **Mínimo comentários**: Código auto-explicativo
 - **Headers lowercase**: Padrão HTTP

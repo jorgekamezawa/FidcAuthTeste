@@ -294,6 +294,7 @@ data class [Ação][Entidade]Input(
     val [campoLista]: List<[Item]>,
     val [campoData]: LocalDate
     // Sem valores default - explicitação
+    // NUNCA incluir correlationId - capturado pelo CorrelationIdFilter
 )
 
 // usecase/[contexto]/dto/output/
@@ -547,16 +548,24 @@ val userInfo = com.banco.fidc.auth.domain.session.entity.UserInfo(...)
     logger.warn("[Contexto] enum inválido - Enum: [EnumType], Valor: '${input.[campo]}'")
     throw InvalidInputException("[Campo] '${input.[campo]}' é incorreto. Valores aceitos: ${[Enum].getAcceptedValues()}")
 
-// ✅ CORRETO: Logs diretos, sem métodos auxiliares para logs simples  
+// ✅ CORRETO: Logs diretos, correlationId automaticamente incluído via MDC
 logger.info("Executando [ação] de [entidade]: [campo]=${input.[campo]}")
 logger.info("[Ação] de [entidade] concluída: id=${savedEntity.externalId}")
+
+// ❌ ERRADO: Não incluir correlationId manualmente nos logs
+logger.info("Executando [ação]: correlationId=${input.correlationId}")
 ```
 
 ### Extração de Métodos
 - **Nomes descritivos**: `fetchExternalData()`, `validateBusinessRules()`, `createDomainEntity()`
 - **Responsabilidade única**: Cada método faz uma coisa específica
 - **Ordem lógica**: Métodos aparecem na ordem que são chamados
-- **Sem correlationId**: Não incluir nos logs (não está no input)
+
+### Tratamento de CorrelationId
+- **NUNCA repassar correlationId** para use cases ou DTOs
+- **CorrelationIdFilter captura automaticamente** do header `x-correlation-id`
+- **MDC inclui automaticamente** em todos os logs via SLF4J
+- **Apenas documentar** no controller se necessário, não logar
 
 ### Integração com Domain Layer
 - **Coleções mutáveis**: Entidades de domínio devem usar `MutableList` internamente e expor `List` publicamente
@@ -569,11 +578,13 @@ logger.info("[Ação] de [entidade] concluída: id=${savedEntity.externalId}")
 - **Orquestram, não decidem**: Regras ficam no domain
 - **Método único execute()**: Command Pattern limpo e conciso
 - **Transactional criterioso**: Apenas bancos relacionais
-- **Logging sem dados sensíveis**: Mascaramento quando necessário
+- **Logging sem correlationId**: CorrelationIdFilter inclui automaticamente via MDC
+- **Sem dados sensíveis**: Mascaramento quando necessário
 
 ### DTOs
 - **Sem valores default**: Explicitação sempre
-- **Separação clara**: Input/Output vs Params/Result
+- **Separação clara**: Input/Output vs Params/Result  
+- **Sem correlationId**: Capturado automaticamente pelo CorrelationIdFilter
 - **Mappers próximos**: Extension functions no arquivo
 
 ### Application Services

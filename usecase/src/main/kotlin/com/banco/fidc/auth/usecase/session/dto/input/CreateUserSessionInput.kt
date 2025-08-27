@@ -10,6 +10,5 @@ data class CreateUserSessionInput(
     val longitude: String?,
     val locationAccuracy: String?,
     val locationTimestamp: String?,
-    val correlationId: String,
     val clientIpAddress: String
 )

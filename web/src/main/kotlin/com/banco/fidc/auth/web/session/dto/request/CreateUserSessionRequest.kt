@@ -24,7 +24,6 @@ fun CreateUserSessionRequest.toInput(
     longitude: String?,
     locationAccuracy: String?,
     locationTimestamp: String?,
-    correlationId: String,
     clientIpAddress: String
 ): CreateUserSessionInput {
     return CreateUserSessionInput(
@@ -37,7 +36,6 @@ fun CreateUserSessionRequest.toInput(
         longitude = longitude,
         locationAccuracy = locationAccuracy,
         locationTimestamp = locationTimestamp,
-        correlationId = correlationId,
         clientIpAddress = clientIpAddress
     )
 }

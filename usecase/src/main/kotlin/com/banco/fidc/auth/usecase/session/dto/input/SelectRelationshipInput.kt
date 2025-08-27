@@ -5,6 +5,5 @@ data class SelectRelationshipInput(
     val relationshipId: String,
     val partner: String,
     val clientIpAddress: String,
-    val userAgent: String,
-    val correlationId: String
+    val userAgent: String
 )

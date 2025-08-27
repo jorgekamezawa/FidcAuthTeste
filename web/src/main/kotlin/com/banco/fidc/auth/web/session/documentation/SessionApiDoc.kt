@@ -249,6 +249,9 @@ interface SessionApiDoc {
         @Parameter(description = "ID of relationship to select", required = true)
         @RequestHeader("relationshipId") relationshipId: String,
         
+        @Parameter(description = "User agent string from client", required = true)
+        @RequestHeader("user-agent") userAgent: String,
+        
         @Parameter(description = "Tracking correlation ID", required = false)
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
         
@@ -392,6 +395,9 @@ interface SessionApiDoc {
         
         @Parameter(description = "Partner identifier (prevcom, caio, etc.)", required = true)
         @RequestHeader("partner") partner: String,
+        
+        @Parameter(description = "User agent string from client", required = true)
+        @RequestHeader("user-agent") userAgent: String,
         
         @Parameter(description = "Tracking correlation ID (auto-generated if omitted)", required = false)
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
