@@ -52,9 +52,8 @@ Body: (vazio)
 - **503**: Redis indisponível (falha ao verificar/remover sessão)
 
 ## 🛡️ Política de Rate Limiting:
-- **Por IP**: 10 req/min, 50 req/hora
-- **Por User-Agent**: 15 req/min, 75 req/hora
-- **Burst**: Até 5 req consecutivas
+- **Por IP**: 20 req/min
+- **Por User-Agent**: 40 req/min
 
 ## 📋 Regras de Negócio:
 

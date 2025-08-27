@@ -100,9 +100,8 @@
 - **503**: Serviços externos indisponíveis (UserManagement, FidcPermission)
 
 ## 🛡️ Política de Rate Limiting:
-- **Por IP**: 20 req/min, 100 req/hora
-- **Por User-Agent**: 40 req/min, 200 req/hora
-- **Burst**: Até 5 req consecutivas
+- **Por IP**: 20 req/min
+- **Por User-Agent**: 40 req/min
 
 ## 📋 Regras de Negócio:
 
