@@ -108,7 +108,6 @@ class SessionController(
     override fun endSession(
         @RequestHeader("Authorization") authorization: String,
         @RequestHeader("partner") partner: String,
-        @RequestHeader("user-agent") userAgent: String,
         @RequestHeader(value = "x-correlation-id", required = false) correlationId: String?,
         httpRequest: HttpServletRequest
     ): ResponseEntity<Void> {
@@ -117,14 +116,10 @@ class SessionController(
         // Validações de header obrigatórios
         require(authorization.isNotBlank()) { "Header 'Authorization' cannot be empty" }
         require(partner.isNotBlank()) { "Header 'partner' cannot be empty" }
-        require(userAgent.isNotBlank()) { "Header 'user-agent' cannot be empty" }
 
-        val clientIpAddress = httpRequest.getClientIp()
         val input = EndSessionInput(
             accessToken = authorization,
-            partner = partner,
-            clientIpAddress = clientIpAddress,
-            userAgent = userAgent
+            partner = partner
         )
 
         endSessionUseCase.execute(input)

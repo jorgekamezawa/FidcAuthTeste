@@ -11,13 +11,10 @@
 ### Headers Obrigatórios:
 - `Authorization` (Bearer {accessToken})
 - `partner` (prevcom, caio, etc.)
-- `user-agent` (para rate limiting)
 
 ### Headers Opcionais:
 - `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
 
-### Headers Automáticos (para rate limiting):
-- `x-forwarded-for` ou `remote-addr` (IP do cliente)
 
 ### Request Body:
 ```json
@@ -47,21 +44,15 @@ Body: (vazio)
 - **401**: Token com assinatura inválida
 - **403**: Partner do request diferente do partner da sessão
 - **404**: Sessão não encontrada (retorna 204 - operação idempotente)
-- **429**: Rate limit excedido
 - **500**: Erro interno (PostgreSQL indisponível)
 - **503**: Redis indisponível (falha ao verificar/remover sessão)
 
-## 🛡️ Política de Rate Limiting:
-- **Por IP**: 20 req/min
-- **Por User-Agent**: 40 req/min
 
 ## 📋 Regras de Negócio:
 
 ### 1. Validações Simples de Entrada
-* **Headers obrigatórios:** Validar presença de Authorization, partner, user-agent
+* **Headers obrigatórios:** Validar presença de Authorization, partner
 * **Se headers ausentes:** Retornar erro 400 "Headers obrigatórios ausentes"
-* **Rate limiting:** Verificar limites por IP e User-Agent
-* **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
 
 ### 2. Extração de SessionId e Busca da Sessão
 * **Extrair sessionId:** Do AccessToken no header Authorization
@@ -101,7 +92,6 @@ Body: (vazio)
 - **Tratamento de Erro**: Operação transacional com rollback em caso de falha
 
 ### Configurações de Timeout
-- **Rate Limiting**: Limites por IP e User-Agent conforme política definida
 - **Operação Idempotente**: Retorna 204 mesmo se sessão já não existir
 - **Validação Segura**: Continua encerramento mesmo com tokens expirados
 

@@ -8,12 +8,10 @@ import com.banco.fidc.auth.shared.exception.InfrastructureException
 import com.banco.fidc.auth.shared.exception.InvalidSessionEnumException
 import com.banco.fidc.auth.usecase.session.EndSessionUseCase
 import com.banco.fidc.auth.usecase.session.dto.input.EndSessionInput
-import com.banco.fidc.auth.usecase.session.dto.params.RateLimitCheckParams
 import com.banco.fidc.auth.usecase.session.exception.SessionNotFoundException
 import com.banco.fidc.auth.usecase.session.exception.SessionProcessingException
 import com.banco.fidc.auth.usecase.session.exception.SessionValidationException
 import com.banco.fidc.auth.usecase.session.service.JwtSecretService
-import com.banco.fidc.auth.usecase.session.service.RateLimitService
 import com.banco.fidc.auth.usecase.session.service.SessionValidationService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -25,7 +23,6 @@ class EndSessionUseCaseImpl(
     private val sessionRepository: SessionRepository,
     private val userSessionControlRepository: UserSessionControlRepository,
     private val jwtSecretService: JwtSecretService,
-    private val rateLimitService: RateLimitService,
     private val sessionValidationService: SessionValidationService
 ) : EndSessionUseCase {
 
@@ -37,7 +34,6 @@ class EndSessionUseCaseImpl(
 
         try {
             validateInput(input)
-            checkRateLimit(input)
             
             val sessionId = extractSessionIdFromToken(input.accessToken)
             val session = findSession(sessionId)
@@ -82,14 +78,6 @@ class EndSessionUseCaseImpl(
         }
     }
     
-    private fun checkRateLimit(input: EndSessionInput) {
-        rateLimitService.checkRateLimit(
-            RateLimitCheckParams(
-                clientIpAddress = input.clientIpAddress,
-                userAgent = input.userAgent
-            )
-        )
-    }
     
     private fun extractSessionIdFromToken(accessToken: String): UUID {
         val sessionId = sessionValidationService.extractSessionIdFromToken(accessToken)
