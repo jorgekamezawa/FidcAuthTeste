@@ -3,6 +3,7 @@ package com.banco.fidc.auth.web.session.controller
 import com.banco.fidc.auth.usecase.session.CreateUserSessionUseCase
 import com.banco.fidc.auth.usecase.session.SelectRelationshipUseCase
 import com.banco.fidc.auth.usecase.session.EndSessionUseCase
+import com.banco.fidc.auth.usecase.session.GetJwtSecretUseCase
 import com.banco.fidc.auth.usecase.session.dto.input.SelectRelationshipInput
 import com.banco.fidc.auth.usecase.session.dto.input.EndSessionInput
 import com.banco.fidc.auth.web.common.extension.getClientIp
@@ -11,7 +12,9 @@ import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.request.toInput
 import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
 import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
+import com.banco.fidc.auth.web.session.dto.response.GetJwtSecretResponse
 import com.banco.fidc.auth.web.session.dto.response.toResponse
+import com.banco.fidc.auth.web.session.dto.response.createGetJwtSecretInput
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
@@ -25,7 +28,8 @@ import java.util.UUID
 class SessionController(
     private val createUserSessionUseCase: CreateUserSessionUseCase,
     private val selectRelationshipUseCase: SelectRelationshipUseCase,
-    private val endSessionUseCase: EndSessionUseCase
+    private val endSessionUseCase: EndSessionUseCase,
+    private val getJwtSecretUseCase: GetJwtSecretUseCase
 ) : SessionApiDoc {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -133,5 +137,30 @@ class SessionController(
 
         logger.info("Session ended successfully")
         return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/jwt-secret")
+    @ResponseStatus(HttpStatus.OK)
+    override fun getJwtSecret(
+        @RequestHeader("user-agent") userAgent: String,
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        httpRequest: HttpServletRequest
+    ): GetJwtSecretResponse {
+        logger.info("Received getJwtSecret request")
+
+        // Validação de header obrigatório
+        require(userAgent.isNotBlank()) { "Header 'user-agent' cannot be empty" }
+
+        val clientIpAddress = httpRequest.getClientIp()
+        val input = createGetJwtSecretInput(
+            userAgent = userAgent,
+            clientIpAddress = clientIpAddress
+        )
+        
+        val output = getJwtSecretUseCase.execute(input)
+        val response = output.toResponse()
+
+        logger.info("JWT secret obtained successfully")
+        return response
     }
 }

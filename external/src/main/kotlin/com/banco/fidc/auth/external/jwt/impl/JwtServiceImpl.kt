@@ -91,6 +91,20 @@ class JwtServiceImpl(
         }
     }
 
+    override fun getSecretHash(): String {
+        logger.debug("Getting JWT secret hash")
+        
+        return try {
+            val secret = jwtSecretResolver.getJwtSigningKey()
+            logger.debug("JWT secret hash retrieved successfully")
+            secret
+            
+        } catch (e: Exception) {
+            logger.error("Error getting JWT secret hash: ${e.message}")
+            throw JwtSecretException("Failed to get JWT secret", e)
+        }
+    }
+
     // ========== JWT Parsing Service Methods ==========
 
     override fun extractClaims(token: String, requiredFields: List<String>): Map<String, Any> {

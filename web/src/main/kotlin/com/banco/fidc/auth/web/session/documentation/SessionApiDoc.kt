@@ -4,6 +4,7 @@ import com.banco.fidc.auth.web.common.exception.dto.ErrorResponse
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
 import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
+import com.banco.fidc.auth.web.session.dto.response.GetJwtSecretResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -404,4 +405,84 @@ interface SessionApiDoc {
         
         httpRequest: HttpServletRequest
     ): ResponseEntity<Void>
+
+    @Operation(
+        summary = "Get JWT Secret",
+        description = "Retrieves the JWT signing secret hash for token validation. This endpoint is used for initial configuration and doesn't require authentication."
+    )
+    @ApiResponses(value = [
+        ApiResponse(
+            responseCode = "200",
+            description = "JWT secret retrieved successfully",
+            content = [Content(
+                schema = Schema(implementation = GetJwtSecretResponse::class),
+                examples = [ExampleObject(
+                    name = "Success",
+                    value = """{
+                        "secret": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - Missing required headers",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Missing user-agent header",
+                    value = """{
+                        "timestamp": "2025-08-28T14:45:32",
+                        "status": 400,
+                        "error": "Bad Request",
+                        "message": "Header 'user-agent' cannot be empty",
+                        "path": "/v1/sessions/jwt-secret"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "500",
+            description = "Internal Server Error - Secret not found or invalid format",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "Secret not found",
+                    value = """{
+                        "timestamp": "2025-08-28T14:45:32",
+                        "status": 500,
+                        "error": "Internal Server Error",
+                        "message": "Erro interno do servidor",
+                        "path": "/v1/sessions/jwt-secret"
+                    }"""
+                )]
+            )]
+        ),
+        ApiResponse(
+            responseCode = "503",
+            description = "Service Unavailable - AWS Secrets Manager temporarily unavailable",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "AWS Secrets Manager unavailable",
+                    value = """{
+                        "timestamp": "2025-08-28T14:45:32",
+                        "status": 503,
+                        "error": "Service Unavailable",
+                        "message": "Serviço temporariamente indisponível",
+                        "path": "/v1/sessions/jwt-secret"
+                    }"""
+                )]
+            )]
+        )
+    ])
+    fun getJwtSecret(
+        @Parameter(description = "User agent string from client", required = true)
+        @RequestHeader("user-agent") userAgent: String,
+        
+        @Parameter(description = "Tracking correlation ID (auto-generated if omitted)", required = false)
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
+        
+        httpRequest: HttpServletRequest
+    ): GetJwtSecretResponse
 }
