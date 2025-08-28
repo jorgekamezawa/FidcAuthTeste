@@ -1,6 +1,7 @@
 package com.banco.fidc.auth.web.session.documentation
 
 import com.banco.fidc.auth.web.common.exception.dto.ErrorResponse
+import com.banco.fidc.auth.web.common.exception.dto.ValidationErrorResponse
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
 import com.banco.fidc.auth.web.session.dto.response.GetJwtSecretResponse
@@ -19,23 +20,23 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 
 @Tag(
-    name = "Authentication",
-    description = "User session management and authentication operations"
+    name = "Autenticação",
+    description = "Operações de gerenciamento de sessão de usuário e autenticação"
 )
 interface SessionApiDoc {
 
     @Operation(
-        summary = "Create user session",
-        description = "Creates a new authenticated user session with user data, permissions and access token"
+        summary = "Criar sessão de usuário",
+        description = "Cria uma nova sessão autenticada de usuário com dados do usuário, permissões e token de acesso"
     )
     @ApiResponses(value = [
         ApiResponse(
             responseCode = "200",
-            description = "Session created successfully",
+            description = "Sessão criada com sucesso",
             content = [Content(
                 schema = Schema(implementation = CreateUserSessionResponse::class),
                 examples = [ExampleObject(
-                    name = "Success",
+                    name = "Sucesso",
                     value = """{
                         "userInfo": {
                             "cpf": "123***456-78",
@@ -65,83 +66,89 @@ interface SessionApiDoc {
             )]
         ),
         ApiResponse(
-            responseCode = "400",
-            description = "Bad Request - Invalid input data or JWT token",
+            responseCode = "4XX",
+            description = "Erros de validação de campos - Retorna ValidationErrorResponse",
             content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
+                schema = Schema(implementation = ValidationErrorResponse::class),
                 examples = [ExampleObject(
+                    name = "ValidationErrorResponse",
                     value = """{
-                        "timestamp": "2025-08-22T14:45:32",
+                        "timestamp": "2025-08-28T14:45:32",
                         "status": 400,
                         "error": "Bad Request",
-                        "message": "Invalid JWT token",
-                        "path": "/v1/sessions"
+                        "message": "Dados de entrada inválidos",
+                        "path": "/v1/sessions",
+                        "errors": {
+                            "signedData": "signedData é obrigatório"
+                        }
                     }"""
                 )]
             )]
         ),
         ApiResponse(
-            responseCode = "403",
-            description = "Forbidden - User not authorized",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "404",
-            description = "Not Found - User not found",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "503",
-            description = "Service Unavailable - External service temporarily unavailable",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+            responseCode = "default",
+            description = "Erros gerais - Retorna ErrorResponse para códigos 403, 404, 503, etc.",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "ErrorResponse",
+                    value = """{
+                        "timestamp": "2025-08-28T14:45:32",
+                        "status": 403,
+                        "error": "Forbidden",
+                        "message": "Usuário não autorizado",
+                        "path": "/v1/sessions"
+                    }"""
+                )]
+            )]
         )
     ])
     fun createUserSession(
         @RequestBody request: CreateUserSessionRequest,
 
-        @Parameter(description = "Partner identifier", required = true)
+        @Parameter(description = "Identificador do parceiro", required = true, example = "prevcom")
         @RequestHeader("partner") partner: String,
 
-        @Parameter(description = "User agent string from client", required = true)
+        @Parameter(description = "String do user agent do cliente", required = true, example = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         @RequestHeader("user-agent") userAgent: String,
 
-        @Parameter(description = "Access channel (WEB, MOBILE, etc.)", required = true)
+        @Parameter(description = "Canal de acesso (WEB, MOBILE, etc.)", required = true, example = "WEB")
         @RequestHeader("channel") channel: String,
 
-        @Parameter(description = "Device fingerprint", required = true)
+        @Parameter(description = "Impressão digital do dispositivo", required = true, example = "fp_abc123def456")
         @RequestHeader("fingerprint") fingerprint: String,
 
-        @Parameter(description = "User location latitude (optional - saved as null if not provided)", required = false)
+        @Parameter(description = "Latitude da localização do usuário (opcional - salvo como null se não fornecido)", required = false, example = "-23.550520")
         @RequestHeader("latitude", required = false) latitude: String?,
 
-        @Parameter(description = "User location longitude (optional - saved as null if not provided)", required = false)
+        @Parameter(description = "Longitude da localização do usuário (opcional - salvo como null se não fornecido)", required = false, example = "-46.633309")
         @RequestHeader("longitude", required = false) longitude: String?,
 
-        @Parameter(description = "Location accuracy in meters (optional - saved as null if not provided)", required = false)
+        @Parameter(description = "Precisão da localização em metros (opcional - salvo como null se não fornecido)", required = false, example = "10")
         @RequestHeader("location-accuracy", required = false) locationAccuracy: String?,
 
-        @Parameter(description = "Location timestamp in ISO format (optional - saved as null if not provided)", required = false)
+        @Parameter(description = "Timestamp da localização em formato ISO (opcional - salvo como null se não fornecido)", required = false, example = "2025-08-28T14:45:32Z")
         @RequestHeader("location-timestamp", required = false) locationTimestamp: String?,
 
-        @Parameter(description = "Tracking correlation ID", required = false)
+        @Parameter(description = "ID de correlação de rastreamento", required = false, example = "req_123456789")
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
 
         httpRequest: HttpServletRequest
     ): CreateUserSessionResponse
 
     @Operation(
-        summary = "Select relationship",
-        description = "Selects a specific relationship, fetches contextual permissions and updates session. " +
-                "The partner header must match the partner of the current session for security validation."
+        summary = "Selecionar relacionamento",
+        description = "Seleciona um relacionamento específico, busca permissões contextuais e atualiza a sessão. " +
+                "O cabeçalho partner deve coincidir com o partner da sessão atual para validação de segurança."
     )
     @ApiResponses(value = [
         ApiResponse(
             responseCode = "200",
-            description = "Relationship selected successfully",
+            description = "Relacionamento selecionado com sucesso",
             content = [Content(
                 schema = Schema(implementation = SelectRelationshipResponse::class),
                 examples = [ExampleObject(
-                    name = "Success",
+                    name = "Sucesso",
                     value = """{
                         "userInfo": {
                             "cpf": "123***456-78",
@@ -178,187 +185,61 @@ interface SessionApiDoc {
             )]
         ),
         ApiResponse(
-            responseCode = "400",
-            description = "Bad Request - Invalid relationship ID or missing headers",
+            responseCode = "default",
+            description = "Erros gerais - Retorna ErrorResponse para códigos 400, 401, 403, 404, 503, etc.",
             content = [Content(
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [ExampleObject(
-                    name = "Missing relationshipId header",
+                    name = "ErrorResponse",
                     value = """{
-                        "timestamp": "2025-08-22T14:45:32",
+                        "timestamp": "2025-08-28T14:45:32",
                         "status": 400,
                         "error": "Bad Request",
                         "message": "Header relationshipId é obrigatório",
                         "path": "/v1/sessions/relationship"
                     }"""
-                ), ExampleObject(
-                    name = "Missing partner header",
-                    value = """{
-                        "timestamp": "2025-08-22T14:45:32",
-                        "status": 400,
-                        "error": "Bad Request",
-                        "message": "Header partner é obrigatório",
-                        "path": "/v1/sessions/relationship"
-                    }"""
                 )]
             )]
-        ),
-        ApiResponse(
-            responseCode = "401",
-            description = "Unauthorized - Invalid or expired access token",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "403",
-            description = "Forbidden - Partner not authorized for this session",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    value = """{
-                        "timestamp": "2025-08-22T14:45:32",
-                        "status": 403,
-                        "error": "Forbidden",
-                        "message": "Partner não autorizado para esta sessão",
-                        "path": "/v1/sessions/relationship"
-                    }"""
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "404",
-            description = "Not Found - Session not found or expired",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "503",
-            description = "Service Unavailable - FidcPermission service temporarily unavailable",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
         )
     ])
     fun selectRelationship(
-        @Parameter(description = "Bearer token from session creation", required = true)
+        @Parameter(description = "Token Bearer da criação da sessão", required = true, example = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
         @RequestHeader("authorization") authorization: String,
 
-        @Parameter(description = "Partner identifier (must match session partner)", required = true)
+        @Parameter(description = "Identificador do parceiro (deve coincidir com o partner da sessão)", required = true, example = "btg")
         @RequestHeader("partner") partner: String,
 
-        @Parameter(description = "ID of relationship to select", required = true)
+        @Parameter(description = "ID do relacionamento a selecionar", required = true, example = "rel-456")
         @RequestHeader("relationshipId") relationshipId: String,
 
-        @Parameter(description = "Tracking correlation ID", required = false)
+        @Parameter(description = "ID de correlação de rastreamento", required = false, example = "req_987654321")
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
 
         httpRequest: HttpServletRequest
     ): SelectRelationshipResponse
 
     @Operation(
-        summary = "End session",
-        description = "Ends the active user session, invalidating the AccessToken and clearing session state. " +
-                "The partner header must match the partner of the session being terminated. This operation is idempotent."
+        summary = "Finalizar sessão",
+        description = "Finaliza a sessão ativa do usuário, invalidando o AccessToken e limpando o estado da sessão. " +
+                "O cabeçalho partner deve coincidir com o partner da sessão sendo finalizada. Esta operação é idempotente."
     )
     @ApiResponses(value = [
         ApiResponse(
             responseCode = "204",
-            description = "Session ended successfully"
+            description = "Sessão finalizada com sucesso"
         ),
         ApiResponse(
-            responseCode = "400",
-            description = "Bad Request - Missing partner header or malformed token",
+            responseCode = "default",
+            description = "Erros gerais - Retorna ErrorResponse para códigos 400, 401, 403, 500, 503, etc.",
             content = [Content(
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [ExampleObject(
-                    name = "Missing partner header",
+                    name = "ErrorResponse",
                     value = """{
-                        "timestamp": "2025-08-18T14:45:32",
+                        "timestamp": "2025-08-28T14:45:32",
                         "status": 400,
                         "error": "Bad Request",
                         "message": "Header partner é obrigatório",
-                        "path": "/v1/sessions"
-                    }"""
-                ), ExampleObject(
-                    name = "Malformed token",
-                    value = """{
-                        "timestamp": "2025-08-18T14:45:32",
-                        "status": 400,
-                        "error": "Bad Request",
-                        "message": "Token de acesso malformado",
-                        "path": "/v1/sessions"
-                    }"""
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "401",
-            description = "Unauthorized - Invalid token signature or missing Authorization header",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "Invalid token",
-                    value = """{
-                        "timestamp": "2025-08-18T14:45:32",
-                        "status": 401,
-                        "error": "Unauthorized",
-                        "message": "Token de acesso inválido",
-                        "path": "/v1/sessions"
-                    }"""
-                ), ExampleObject(
-                    name = "Missing authorization header",
-                    value = """{
-                        "timestamp": "2025-08-18T14:45:32",
-                        "status": 401,
-                        "error": "Unauthorized",
-                        "message": "Token de acesso obrigatório",
-                        "path": "/v1/sessions"
-                    }"""
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "403",
-            description = "Forbidden - Partner not authorized for this session",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "Partner not authorized",
-                    value = """{
-                        "timestamp": "2025-08-18T14:45:32",
-                        "status": 403,
-                        "error": "Forbidden",
-                        "message": "Partner não autorizado para esta sessão",
-                        "path": "/v1/sessions"
-                    }"""
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "500",
-            description = "Internal Server Error",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "Internal error",
-                    value = """{
-                        "timestamp": "2025-08-18T14:45:32",
-                        "status": 500,
-                        "error": "Internal Server Error",
-                        "message": "Erro interno do servidor",
-                        "path": "/v1/sessions"
-                    }"""
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "503",
-            description = "Service Unavailable - Redis temporarily unavailable",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "Redis unavailable",
-                    value = """{
-                        "timestamp": "2025-08-18T14:45:32",
-                        "status": 503,
-                        "error": "Service Unavailable",
-                        "message": "Serviço temporariamente indisponível",
                         "path": "/v1/sessions"
                     }"""
                 )]
@@ -366,30 +247,30 @@ interface SessionApiDoc {
         )
     ])
     fun endSession(
-        @Parameter(description = "Bearer token obtained from authentication flow", required = true)
+        @Parameter(description = "Token Bearer obtido do fluxo de autenticação", required = true, example = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
         @RequestHeader("Authorization") authorization: String,
 
-        @Parameter(description = "Partner identifier (prevcom, caio, etc.)", required = true)
+        @Parameter(description = "Identificador do parceiro (prevcom, caio, etc.)", required = true, example = "btg")
         @RequestHeader("partner") partner: String,
 
-        @Parameter(description = "Tracking correlation ID (auto-generated if omitted)", required = false)
+        @Parameter(description = "ID de correlação de rastreamento (auto-gerado se omitido)", required = false, example = "req_endSession_123")
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
 
         httpRequest: HttpServletRequest
     ): ResponseEntity<Void>
 
     @Operation(
-        summary = "Get JWT Secret",
-        description = "Retrieves the JWT signing secret hash for token validation. This endpoint is used for initial configuration and doesn't require authentication."
+        summary = "Obter Segredo JWT",
+        description = "Recupera o hash do segredo de assinatura JWT para validação de token. Este endpoint é usado para configuração inicial e não requer autenticação."
     )
     @ApiResponses(value = [
         ApiResponse(
             responseCode = "200",
-            description = "JWT secret retrieved successfully",
+            description = "Segredo JWT recuperado com sucesso",
             content = [Content(
                 schema = Schema(implementation = GetJwtSecretResponse::class),
                 examples = [ExampleObject(
-                    name = "Success",
+                    name = "Sucesso",
                     value = """{
                         "secret": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
                     }"""
@@ -397,12 +278,12 @@ interface SessionApiDoc {
             )]
         ),
         ApiResponse(
-            responseCode = "500",
-            description = "Internal Server Error - Secret not found or invalid format",
+            responseCode = "default",
+            description = "Erros gerais - Retorna ErrorResponse para códigos 500, 503, etc.",
             content = [Content(
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [ExampleObject(
-                    name = "Secret not found",
+                    name = "ErrorResponse",
                     value = """{
                         "timestamp": "2025-08-28T14:45:32",
                         "status": 500,
@@ -412,27 +293,10 @@ interface SessionApiDoc {
                     }"""
                 )]
             )]
-        ),
-        ApiResponse(
-            responseCode = "503",
-            description = "Service Unavailable - AWS Secrets Manager temporarily unavailable",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "AWS Secrets Manager unavailable",
-                    value = """{
-                        "timestamp": "2025-08-28T14:45:32",
-                        "status": 503,
-                        "error": "Service Unavailable",
-                        "message": "Serviço temporariamente indisponível",
-                        "path": "/v1/sessions/jwt-secret"
-                    }"""
-                )]
-            )]
         )
     ])
     fun getJwtSecret(
-        @Parameter(description = "Tracking correlation ID (auto-generated if omitted)", required = false)
+        @Parameter(description = "ID de correlação de rastreamento (auto-gerado se omitido)", required = false, example = "req_getSecret_456")
         @RequestHeader("x-correlation-id", required = false) correlationId: String?
     ): GetJwtSecretResponse
 }

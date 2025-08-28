@@ -7,21 +7,21 @@ import com.banco.fidc.auth.web.session.dto.common.RelationshipResponse
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.format.DateTimeFormatter
 
-@Schema(description = "Response after creating user session")
+@Schema(description = "Resposta após criar sessão de usuário")
 data class CreateUserSessionResponse(
-    @Schema(description = "User information")
+    @Schema(description = "Informações do usuário")
     val userInfo: UserInfoResponse,
     
-    @Schema(description = "Fund information")
+    @Schema(description = "Informações do fundo")
     val fund: FundResponse,
     
-    @Schema(description = "User relationships")
+    @Schema(description = "Relacionamentos do usuário")
     val relationshipList: List<RelationshipResponse>,
     
-    @Schema(description = "User permissions")
+    @Schema(description = "Permissões do usuário")
     val permissions: List<String>,
     
-    @Schema(description = "Access token for authenticated requests")
+    @Schema(description = "Token de acesso para requisições autenticadas")
     val accessToken: String
 )
 

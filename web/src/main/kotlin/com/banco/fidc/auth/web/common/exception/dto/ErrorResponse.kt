@@ -3,20 +3,20 @@ package com.banco.fidc.auth.web.common.exception.dto
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
-@Schema(description = "Standard API error response")
+@Schema(description = "Resposta padrão de erro da API")
 data class ErrorResponse(
-    @Schema(description = "Error timestamp", example = "2025-08-22T10:30:00")
+    @Schema(description = "Timestamp do erro", example = "2025-08-28T14:45:32")
     val timestamp: LocalDateTime,
     
-    @Schema(description = "HTTP status code", example = "400")
+    @Schema(description = "Código de status HTTP", example = "400")
     val status: Int,
     
-    @Schema(description = "Error type", example = "Bad Request")
+    @Schema(description = "Tipo do erro", example = "Bad Request")
     val error: String,
     
-    @Schema(description = "Error message", example = "Invalid data")
+    @Schema(description = "Mensagem descritiva do erro", example = "Dados inválidos")
     val message: String,
     
-    @Schema(description = "Request path", example = "/api/v1/resource")
+    @Schema(description = "Caminho da requisição que causou o erro", example = "/v1/sessions")
     val path: String
 )

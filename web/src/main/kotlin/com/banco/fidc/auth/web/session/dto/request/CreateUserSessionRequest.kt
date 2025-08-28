@@ -4,12 +4,12 @@ import com.banco.fidc.auth.usecase.session.dto.input.CreateUserSessionInput
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank
 
-@Schema(description = "Request to create a new user session")
+@Schema(description = "Requisição para criar uma nova sessão de usuário")
 data class CreateUserSessionRequest(
-    @field:NotBlank(message = "signedData is required")
+    @field:NotBlank(message = "signedData é obrigatório")
     @Schema(
-        description = "JWT token with user data",
-        example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcGYiOiIxMjM0NTY3ODkwMSJ9.signature",
+        description = "Token JWT com dados do usuário",
+        example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcGYiOiIyNjYzNTE0NjUyOSJ9.9hFb4YPD2mWHOiV28loMArSVVYjI5oN38-yUqLRwKmQ",
         required = true
     )
     val signedData: String

@@ -6,24 +6,24 @@ import com.banco.fidc.auth.web.session.dto.common.FundResponse
 import com.banco.fidc.auth.web.session.dto.common.RelationshipResponse
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(description = "Response after selecting relationship")
+@Schema(description = "Resposta após selecionar relacionamento")
 data class SelectRelationshipResponse(
-    @Schema(description = "User information")
+    @Schema(description = "Informações do usuário")
     val userInfo: UserInfoResponse,
     
-    @Schema(description = "Fund information") 
+    @Schema(description = "Informações do fundo") 
     val fund: FundResponse,
     
-    @Schema(description = "All user relationships")
+    @Schema(description = "Todos os relacionamentos do usuário")
     val relationshipList: List<RelationshipResponse>,
     
-    @Schema(description = "Selected relationship")
+    @Schema(description = "Relacionamento selecionado")
     val relationshipSelected: RelationshipResponse,
     
-    @Schema(description = "Context-specific permissions for selected relationship")
+    @Schema(description = "Permissões específicas do contexto para o relacionamento selecionado")
     val permissions: List<String>,
     
-    @Schema(description = "Same access token from request (reused)")
+    @Schema(description = "Mesmo token de acesso da requisição (reutilizado)")
     val accessToken: String
 )
 

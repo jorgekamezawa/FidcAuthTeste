@@ -46,6 +46,7 @@ class GlobalExceptionHandler {
             status = HttpStatus.BAD_REQUEST.value(),
             error = HttpStatus.BAD_REQUEST.reasonPhrase,
             message = "Validation error in request fields",
+            path = request.requestURI,
             errors = fieldErrors
         )
 
