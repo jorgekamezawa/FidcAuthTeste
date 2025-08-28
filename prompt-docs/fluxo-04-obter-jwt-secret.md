@@ -9,19 +9,14 @@
 ## 🔄 Contrato da API
 
 ### Headers Obrigatórios:
-- `user-agent` (identificação do cliente)
-- `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
+Nenhum header obrigatório
 
 ### Headers Opcionais:
 - `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
 
-### Headers Automáticos:
-- `x-forwarded-for` ou `remote-addr` (IP do cliente - apenas para logs)
-
 ### Request:
 ```http
 GET /v1/sessions/jwt-secret
-User-Agent: Portal-Web/1.0.0
 ```
 
 ### Response (Sucesso):
@@ -43,7 +38,6 @@ User-Agent: Portal-Web/1.0.0
 ```
 
 ### Códigos de Erro:
-- **400**: Headers obrigatórios ausentes
 - **500**: Erro interno (falha ao buscar secret no AWS Secrets Manager)
 - **503**: AWS Secrets Manager indisponível
 
@@ -54,9 +48,8 @@ User-Agent: Portal-Web/1.0.0
 
 ## 📋 Regras de Negócio:
 
-### 1. Validações Simples de Entrada
-* **Headers obrigatórios:** Validar presença de user-agent
-* **Se headers ausentes:** Retornar erro 400 "Headers obrigatórios ausentes"
+### 1. Processamento Direto
+* **Sem validações de entrada:** Não há headers obrigatórios ou parâmetros
 
 ### 2. Busca da JWT Secret no AWS Secrets Manager
 * **Buscar secret:** Obter secret JWT do AWS Secrets Manager usando AwsSecretManagerService
@@ -94,7 +87,7 @@ User-Agent: Portal-Web/1.0.0
   - Início do processo de obtenção da JWT secret
   - Sucesso na obtenção da JWT secret
 - **Logs WARN**: 
-  - Headers obrigatórios ausentes
+  - Nenhum caso específico (endpoint sem validações)
 - **Logs ERROR**: 
   - Falhas na integração com AWS Secrets Manager
   - Secret JWT não encontrada ou formato inválido

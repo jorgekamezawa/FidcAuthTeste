@@ -20,8 +20,4 @@ dependencies {
     
     // Redis for rate limiting
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
-
-    // LDAP
-    implementation("org.springframework.ldap:spring-ldap-core:3.1.2")
-    implementation("org.springframework.boot:spring-boot-starter-data-ldap")
 }

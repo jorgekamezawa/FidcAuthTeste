@@ -3,8 +3,8 @@ package com.banco.fidc.auth.web.session.documentation
 import com.banco.fidc.auth.web.common.exception.dto.ErrorResponse
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
-import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
 import com.banco.fidc.auth.web.session.dto.response.GetJwtSecretResponse
+import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -98,34 +98,34 @@ interface SessionApiDoc {
     ])
     fun createUserSession(
         @RequestBody request: CreateUserSessionRequest,
-        
+
         @Parameter(description = "Partner identifier", required = true)
         @RequestHeader("partner") partner: String,
-        
+
         @Parameter(description = "User agent string from client", required = true)
         @RequestHeader("user-agent") userAgent: String,
-        
+
         @Parameter(description = "Access channel (WEB, MOBILE, etc.)", required = true)
         @RequestHeader("channel") channel: String,
-        
+
         @Parameter(description = "Device fingerprint", required = true)
         @RequestHeader("fingerprint") fingerprint: String,
-        
+
         @Parameter(description = "User location latitude (optional - saved as null if not provided)", required = false)
         @RequestHeader("latitude", required = false) latitude: String?,
-        
+
         @Parameter(description = "User location longitude (optional - saved as null if not provided)", required = false)
         @RequestHeader("longitude", required = false) longitude: String?,
-        
+
         @Parameter(description = "Location accuracy in meters (optional - saved as null if not provided)", required = false)
         @RequestHeader("location-accuracy", required = false) locationAccuracy: String?,
-        
+
         @Parameter(description = "Location timestamp in ISO format (optional - saved as null if not provided)", required = false)
         @RequestHeader("location-timestamp", required = false) locationTimestamp: String?,
-        
+
         @Parameter(description = "Tracking correlation ID", required = false)
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
-        
+
         httpRequest: HttpServletRequest
     ): CreateUserSessionResponse
 
@@ -243,19 +243,19 @@ interface SessionApiDoc {
     fun selectRelationship(
         @Parameter(description = "Bearer token from session creation", required = true)
         @RequestHeader("authorization") authorization: String,
-        
+
         @Parameter(description = "Partner identifier (must match session partner)", required = true)
         @RequestHeader("partner") partner: String,
-        
+
         @Parameter(description = "ID of relationship to select", required = true)
         @RequestHeader("relationshipId") relationshipId: String,
-        
+
         @Parameter(description = "User agent string from client", required = true)
         @RequestHeader("user-agent") userAgent: String,
-        
+
         @Parameter(description = "Tracking correlation ID", required = false)
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
-        
+
         httpRequest: HttpServletRequest
     ): SelectRelationshipResponse
 
@@ -393,16 +393,16 @@ interface SessionApiDoc {
     fun endSession(
         @Parameter(description = "Bearer token obtained from authentication flow", required = true)
         @RequestHeader("Authorization") authorization: String,
-        
+
         @Parameter(description = "Partner identifier (prevcom, caio, etc.)", required = true)
         @RequestHeader("partner") partner: String,
-        
+
         @Parameter(description = "User agent string from client", required = true)
         @RequestHeader("user-agent") userAgent: String,
-        
+
         @Parameter(description = "Tracking correlation ID (auto-generated if omitted)", required = false)
         @RequestHeader("x-correlation-id", required = false) correlationId: String?,
-        
+
         httpRequest: HttpServletRequest
     ): ResponseEntity<Void>
 
@@ -420,23 +420,6 @@ interface SessionApiDoc {
                     name = "Success",
                     value = """{
                         "secret": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
-                    }"""
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "400",
-            description = "Bad Request - Missing required headers",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "Missing user-agent header",
-                    value = """{
-                        "timestamp": "2025-08-28T14:45:32",
-                        "status": 400,
-                        "error": "Bad Request",
-                        "message": "Header 'user-agent' cannot be empty",
-                        "path": "/v1/sessions/jwt-secret"
                     }"""
                 )]
             )]
@@ -477,12 +460,7 @@ interface SessionApiDoc {
         )
     ])
     fun getJwtSecret(
-        @Parameter(description = "User agent string from client", required = true)
-        @RequestHeader("user-agent") userAgent: String,
-        
         @Parameter(description = "Tracking correlation ID (auto-generated if omitted)", required = false)
-        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
-        
-        httpRequest: HttpServletRequest
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?
     ): GetJwtSecretResponse
 }

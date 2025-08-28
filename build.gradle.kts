@@ -7,7 +7,7 @@ plugins {
 }
 
 allprojects {
-	group = "com.banco.fidc"
+	group = "com.banco.fidc.auth"
 	version = "0.0.1-SNAPSHOT"
 
 	repositories {

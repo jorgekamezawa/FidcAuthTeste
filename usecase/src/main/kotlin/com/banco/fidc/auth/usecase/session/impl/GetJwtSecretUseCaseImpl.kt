@@ -3,7 +3,6 @@ package com.banco.fidc.auth.usecase.session.impl
 import com.banco.fidc.auth.shared.exception.BusinessException
 import com.banco.fidc.auth.shared.exception.InfrastructureException
 import com.banco.fidc.auth.usecase.session.GetJwtSecretUseCase
-import com.banco.fidc.auth.usecase.session.dto.input.GetJwtSecretInput
 import com.banco.fidc.auth.usecase.session.dto.output.GetJwtSecretOutput
 import com.banco.fidc.auth.usecase.session.exception.SessionProcessingException
 import com.banco.fidc.auth.usecase.session.service.JwtSecretService
@@ -17,7 +16,7 @@ class GetJwtSecretUseCaseImpl(
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    override fun execute(input: GetJwtSecretInput): GetJwtSecretOutput {
+    override fun execute(): GetJwtSecretOutput {
         logger.info("Executando obtenção de JWT secret")
         
         try {

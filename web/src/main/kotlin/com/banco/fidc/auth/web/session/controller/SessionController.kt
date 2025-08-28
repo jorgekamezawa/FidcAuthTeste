@@ -14,7 +14,6 @@ import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
 import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
 import com.banco.fidc.auth.web.session.dto.response.GetJwtSecretResponse
 import com.banco.fidc.auth.web.session.dto.response.toResponse
-import com.banco.fidc.auth.web.session.dto.response.createGetJwtSecretInput
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
@@ -142,22 +141,11 @@ class SessionController(
     @GetMapping("/jwt-secret")
     @ResponseStatus(HttpStatus.OK)
     override fun getJwtSecret(
-        @RequestHeader("user-agent") userAgent: String,
-        @RequestHeader("x-correlation-id", required = false) correlationId: String?,
-        httpRequest: HttpServletRequest
+        @RequestHeader("x-correlation-id", required = false) correlationId: String?
     ): GetJwtSecretResponse {
         logger.info("Received getJwtSecret request")
-
-        // Validação de header obrigatório
-        require(userAgent.isNotBlank()) { "Header 'user-agent' cannot be empty" }
-
-        val clientIpAddress = httpRequest.getClientIp()
-        val input = createGetJwtSecretInput(
-            userAgent = userAgent,
-            clientIpAddress = clientIpAddress
-        )
         
-        val output = getJwtSecretUseCase.execute(input)
+        val output = getJwtSecretUseCase.execute()
         val response = output.toResponse()
 
         logger.info("JWT secret obtained successfully")
