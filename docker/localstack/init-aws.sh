@@ -12,4 +12,11 @@ aws --endpoint-url=http://localhost:4566 \
   --name dev/jwt/secret \
   --secret-string '{"signingKey": "dGhpc2lzYXNlY3JldGtleWZvcmp3dHNpZ25pbmdmaWRjYXV0aGRldg=="}'
 
+# Create database configuration secret
+aws --endpoint-url=http://localhost:4566 \
+  --region us-east-1 \
+  secretsmanager create-secret \
+  --name dev/db/config \
+  --secret-string '{"username": "fidc_auth_user", "password": "senha123", "host": "localhost", "port": 5432, "dbname": "fidc_auth_db"}'
+
 echo "LocalStack initialized successfully!"

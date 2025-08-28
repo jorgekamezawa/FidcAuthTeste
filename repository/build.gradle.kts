@@ -3,6 +3,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(project(":domain"))
     implementation(project(":usecase"))
+    implementation(project(":external"))
 
     // Redis
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
