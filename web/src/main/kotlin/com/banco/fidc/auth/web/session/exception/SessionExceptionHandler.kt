@@ -19,71 +19,88 @@ class SessionExceptionHandler {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    @ExceptionHandler(BusinessException::class)
-    fun handleBusinessException(
+    // Grupo 1: Validação de Entrada (400) - Usar ex.message
+    @ExceptionHandler(SessionValidationException::class, InvalidInputException::class)
+    fun handleValidationErrors(
         ex: BusinessException,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        logger.warn("Session business error: {}", ex.message)
-
-        val (status, message) = when (ex) {
-            is SessionValidationException -> HttpStatus.BAD_REQUEST to (ex.message ?: "Session validation error")
-            is SessionNotFoundException -> HttpStatus.NOT_FOUND to "Session not found or expired"
-            is SessionProcessingException -> HttpStatus.INTERNAL_SERVER_ERROR to "Error processing session request"
-            is UserManagementIntegrationException -> HttpStatus.SERVICE_UNAVAILABLE to "User service temporarily unavailable"
-            is FidcPermissionIntegrationException -> HttpStatus.SERVICE_UNAVAILABLE to "Permission service temporarily unavailable"
-            else -> HttpStatus.BAD_REQUEST to (ex.message ?: "Session validation error")
-        }
-
-        return buildErrorResponse(status, message, request)
+        logger.warn("Session validation error on {}: {}", request.requestURI, ex.message)
+        
+        val message = ex.message ?: "Invalid request data"
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request)
     }
 
+    // Grupo 2: Recursos Não Encontrados (404) - Usar ex.message  
+    @ExceptionHandler(SessionNotFoundException::class)
+    fun handleNotFoundErrors(
+        ex: BusinessException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        logger.warn("Session not found on {}: {}", request.requestURI, ex.message)
+        
+        val message = ex.message ?: "Session not found or expired"
+        return buildErrorResponse(HttpStatus.NOT_FOUND, message, request)
+    }
+
+    // Grupo 3: Serviços Indisponíveis (503) - Mensagem customizada
+    @ExceptionHandler(UserManagementIntegrationException::class, FidcPermissionIntegrationException::class)
+    fun handleServiceUnavailableErrors(
+        ex: BusinessException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        logger.error("Service integration failure on {}: {}", request.requestURI, ex.message, ex)
+        
+        val message = when (ex) {
+            is UserManagementIntegrationException -> "Serviço de usuários temporariamente indisponível"
+            is FidcPermissionIntegrationException -> "Serviço de permissões temporariamente indisponível"
+            else -> "Serviço temporariamente indisponível"
+        }
+        
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, message, request)
+    }
+
+    // Grupo 4: Erros Internos (500) - Mensagem padronizada + logging completo
+    @ExceptionHandler(SessionProcessingException::class)
+    fun handleInternalProcessingErrors(
+        ex: SessionProcessingException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        logger.error(
+            "Session processing failure on {} - Request: {} - Error: {}", 
+            request.requestURI,
+            request.queryString ?: "no-query",
+            ex.message,
+            ex
+        )
+        
+        return buildErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Ocorreu um erro interno no sistema. Entre em contato com o suporte técnico se o problema persistir.",
+            request
+        )
+    }
+
+    // Grupo 5: Infraestrutura (500/503) - Sempre erros técnicos
     @ExceptionHandler(InfrastructureException::class)
-    fun handleInfrastructureException(
+    fun handleInfrastructureErrors(
         ex: InfrastructureException,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        logger.error("Session infrastructure error [${ex.component}]: ${ex.message}", ex)
+        logger.error(
+            "Infrastructure failure [{}] on {} - Request: {} - Error: {}", 
+            ex.component,
+            request.requestURI,
+            request.queryString ?: "no-query",
+            ex.message,
+            ex
+        )
 
         val (status, message) = when (ex.component) {
-            "UserManagement" -> {
-                when {
-                    ex.message?.contains("Usuário não encontrado", ignoreCase = true) == true ||
-                    ex.message?.contains("User not found", ignoreCase = true) == true ||
-                    ex.message?.contains("Partner não encontrado", ignoreCase = true) == true ||
-                    ex.message?.contains("Partner not found", ignoreCase = true) == true -> 
-                        HttpStatus.BAD_REQUEST to "Invalid user data"
-                    ex.message?.contains("não autorizado", ignoreCase = true) == true ||
-                    ex.message?.contains("unauthorized", ignoreCase = true) == true -> 
-                        HttpStatus.FORBIDDEN to "User not authorized"
-                    else -> HttpStatus.SERVICE_UNAVAILABLE to "User service temporarily unavailable"
-                }
-            }
-            "FidcPermission" -> {
-                when {
-                    ex.message?.contains("não encontrado", ignoreCase = true) == true ||
-                    ex.message?.contains("not found", ignoreCase = true) == true -> 
-                        HttpStatus.NOT_FOUND to "Permissions not found"
-                    ex.message?.contains("não autorizado", ignoreCase = true) == true ||
-                    ex.message?.contains("unauthorized", ignoreCase = true) == true -> 
-                        HttpStatus.FORBIDDEN to "Permission denied"
-                    else -> HttpStatus.SERVICE_UNAVAILABLE to "Permission service temporarily unavailable"
-                }
-            }
-            "JwtSecret" -> {
-                when {
-                    ex.message?.contains("expired", ignoreCase = true) == true -> 
-                        HttpStatus.UNAUTHORIZED to "Token expired"
-                    ex.message?.contains("invalid", ignoreCase = true) == true -> 
-                        HttpStatus.UNAUTHORIZED to "Invalid token"
-                    ex.message?.contains("malformed", ignoreCase = true) == true -> 
-                        HttpStatus.BAD_REQUEST to "Malformed token"
-                    else -> HttpStatus.SERVICE_UNAVAILABLE to "Authentication service temporarily unavailable"
-                }
-            }
-            "Redis", "RedisRepository" -> HttpStatus.SERVICE_UNAVAILABLE to "Session service temporarily unavailable"
-            "PostgreSQL", "SessionRepository" -> HttpStatus.SERVICE_UNAVAILABLE to "Database temporarily unavailable"
-            else -> HttpStatus.SERVICE_UNAVAILABLE to "Service temporarily unavailable"
+            "Redis", "RedisRepository", "PostgreSQL", "SessionRepository" -> 
+                HttpStatus.SERVICE_UNAVAILABLE to "Serviço temporariamente indisponível"
+            else -> 
+                HttpStatus.INTERNAL_SERVER_ERROR to "Ocorreu um erro interno no sistema. Entre em contato com o suporte técnico se o problema persistir."
         }
 
         return buildErrorResponse(status, message, request)
