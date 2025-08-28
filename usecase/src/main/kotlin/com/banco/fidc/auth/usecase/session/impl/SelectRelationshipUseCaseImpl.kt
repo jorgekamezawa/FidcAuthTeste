@@ -11,14 +11,12 @@ import com.banco.fidc.auth.usecase.session.dto.input.SelectRelationshipInput
 import com.banco.fidc.auth.usecase.session.dto.output.SelectRelationshipOutput
 import com.banco.fidc.auth.usecase.session.dto.output.toSelectRelationshipOutput
 import com.banco.fidc.auth.usecase.session.dto.params.FidcPermissionGetPermissionsParams
-import com.banco.fidc.auth.usecase.session.dto.params.RateLimitCheckParams
 import com.banco.fidc.auth.usecase.session.dto.result.FidcPermissionGetPermissionsResult
 import com.banco.fidc.auth.usecase.session.exception.SessionNotFoundException
 import com.banco.fidc.auth.usecase.session.exception.SessionProcessingException
 import com.banco.fidc.auth.usecase.session.exception.SessionValidationException
 import com.banco.fidc.auth.usecase.session.service.FidcPermissionService
 import com.banco.fidc.auth.usecase.session.service.JwtSecretService
-import com.banco.fidc.auth.usecase.session.service.RateLimitService
 import com.banco.fidc.auth.usecase.session.service.SessionValidationService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -30,7 +28,6 @@ class SelectRelationshipUseCaseImpl(
     private val sessionRepository: SessionRepository,
     private val fidcPermissionService: FidcPermissionService,
     private val jwtSecretService: JwtSecretService,
-    private val rateLimitService: RateLimitService,
     private val sessionValidationService: SessionValidationService
 ) : SelectRelationshipUseCase {
 
@@ -42,7 +39,6 @@ class SelectRelationshipUseCaseImpl(
 
         try {
             validateInput(input)
-            checkRateLimit(input)
             
             val sessionId = extractSessionIdFromToken(input.accessToken)
             val session = findAndValidateSession(sessionId, input.partner)
@@ -78,14 +74,6 @@ class SelectRelationshipUseCaseImpl(
         }
     }
     
-    private fun checkRateLimit(input: SelectRelationshipInput) {
-        rateLimitService.checkRateLimit(
-            RateLimitCheckParams(
-                clientIpAddress = input.clientIpAddress,
-                userAgent = input.userAgent
-            )
-        )
-    }
     
     private fun extractSessionIdFromToken(accessToken: String): UUID {
         val sessionId = sessionValidationService.extractSessionIdFromToken(accessToken)

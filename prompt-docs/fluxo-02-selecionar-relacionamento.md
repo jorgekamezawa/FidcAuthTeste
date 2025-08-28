@@ -12,13 +12,10 @@
 - `authorization` (Bearer {accessToken})
 - `partner` (Identificador do partner - deve coincidir com o partner da sessão)
 - `relationshipId` (ID do relacionamento a ser selecionado)
-- `user-agent` (para rate limiting)
 
 ### Headers Opcionais:
 - `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
 
-### Headers Automáticos (para rate limiting):
-- `x-forwarded-for` ou `remote-addr` (IP do cliente)
 
 ### Request Body:
 ```json
@@ -90,21 +87,15 @@
 - **401**: AccessToken inválido, expirado ou malformado
 - **403**: Partner não autorizado para esta sessão
 - **404**: Sessão não encontrada no Redis
-- **429**: Rate limit excedido
 - **500**: Erro interno (integração, Redis)
 - **503**: Serviços externos indisponíveis (FidcPermission)
 
-## 🛡️ Política de Rate Limiting:
-- **Por IP**: 20 req/min
-- **Por User-Agent**: 40 req/min
 
 ## 📋 Regras de Negócio:
 
 ### 1. Validações Simples de Entrada
-* **Headers obrigatórios:** Validar presença de partner, authorization, relationshipId, user-agent
+* **Headers obrigatórios:** Validar presença de partner, authorization, relationshipId
 * **Se headers ausentes:** Retornar erro 400 "Headers obrigatórios ausentes"
-* **Rate limiting:** Verificar limites por IP e User-Agent
-* **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
 
 ### 2. Autenticação e Validação de Sessão
 * **Extrair sessionId:** Do AccessToken no header Authorization
@@ -198,7 +189,6 @@
 ### Configurações do Sistema:
 - **TTL da Sessão**: Preservar TTL original da sessão (não resetar)
 - **Timeout Integrações**: 10 segundos com retry automático
-- **Rate Limiting**: Limites por IP e User-Agent conforme política definida
 - **Cache**: Atualizar sessão existente sem alterar TTL
 
 ## 📊 Observabilidade e Logs:
