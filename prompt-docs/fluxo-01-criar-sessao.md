@@ -10,7 +10,7 @@
 
 ### Headers Obrigatórios:
 - `partner` (prevcom, caio, etc.)
-- `user-agent` (para rate limiting)
+- `user-agent` (identificação do cliente)
 - `channel` (WEB, MOBILE, etc.)
 - `fingerprint` (identificação do dispositivo)
 
@@ -21,8 +21,8 @@
 - `location-timestamp` (timestamp da captura da localização ISO format - se não informado, será salvo como nulo)
 - `x-correlation-id` (gerado automaticamente pelo CorrelationIdFilter se ausente)
 
-### Headers Automáticos (para rate limiting):
-- `x-forwarded-for` ou `remote-addr` (IP do cliente)
+### Headers Automáticos:
+- `x-forwarded-for` ou `remote-addr` (IP do cliente - salvo no histórico de acesso)
 
 ### Request Body:
 ```json
@@ -95,19 +95,13 @@
 ### Códigos de Erro:
 - **400**: JWT inválido, dados inválidos, headers obrigatórios ausentes
 - **404**: Usuário não encontrado no UserManagement
-- **429**: Rate limit excedido
 - **500**: Erro interno (integrações, banco de dados)
 - **503**: Serviços externos indisponíveis (UserManagement, FidcPermission)
 
-## 🛡️ Política de Rate Limiting:
-- **Por IP**: 20 req/min
-- **Por User-Agent**: 40 req/min
 
 ## 📋 Regras de Negócio:
 
 ### 1. Validações Simples de Entrada
-* **Rate limiting:** Verificar limites por IP e User-Agent
-* **Se limite excedido:** Retornar erro 429 "Rate limit excedido"
 * **Headers obrigatórios:** Validar presença de partner, user-agent, channel, fingerprint
 * **Se headers ausentes:** Retornar erro 400 "Headers obrigatórios ausentes"
 * **Channel:** Validar se o valor informado é um canal suportado (WEB, MOBILE, etc.)
@@ -304,7 +298,6 @@ CREATE TABLE session_access_history (
 ### Configurações do Sistema:
 - **TTL da Sessão**: 30 minutos (configurado via properties)
 - **Segurança**: Geração de segredo único por sessão para assinatura JWT
-- **Rate Limiting**: Limites por IP e User-Agent conforme política definida
 - **Timeout Integrações**: 10 segundos com retry automático
 
 ## 📊 Observabilidade e Logs:
