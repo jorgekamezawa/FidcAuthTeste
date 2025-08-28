@@ -81,7 +81,6 @@ class SessionExceptionHandler {
                     else -> HttpStatus.SERVICE_UNAVAILABLE to "Authentication service temporarily unavailable"
                 }
             }
-            "RateLimit" -> HttpStatus.TOO_MANY_REQUESTS to "Rate limit exceeded"
             "Redis", "RedisRepository" -> HttpStatus.SERVICE_UNAVAILABLE to "Session service temporarily unavailable"
             "PostgreSQL", "SessionRepository" -> HttpStatus.SERVICE_UNAVAILABLE to "Database temporarily unavailable"
             else -> HttpStatus.SERVICE_UNAVAILABLE to "Service temporarily unavailable"

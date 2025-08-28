@@ -44,7 +44,6 @@ Representantes de empresas parceiras (Prevcom, CAIO) que acessam o portal para g
 - ✅ **Permissões dinâmicas** baseadas no relacionamento ativo
 - ✅ **Auditoria completa** com geolocalização
 - ✅ **Expiração automática** (30 minutos)
-- ✅ **Rate limiting** defensivo (20 req/min por IP)
 - ✅ **Fallback multi-nível** para secrets JWT
 - ✅ **Observabilidade** com métricas e traces
 - ✅ **Indexação otimizada** no Redis para busca rápida por CPF
@@ -55,7 +54,7 @@ Representantes de empresas parceiras (Prevcom, CAIO) que acessam o portal para g
 ### Stack Técnica
 - **Core**: Kotlin 1.9.25 + Spring Boot 3.4.8 + Java 21
 - **Persistência**: Redis (cache) + PostgreSQL (auditoria)
-- **Segurança**: JWT + Rate Limiting + AWS Secret Manager
+- **Segurança**: JWT + AWS Secret Manager
 - **Observabilidade**: Logback + Micrometer + OpenTelemetry
 
 ### Estrutura do Projeto (Clean Architecture)
@@ -172,7 +171,6 @@ AWS_ENDPOINT=http://localhost:4566
 
 ### Headers Obrigatórios
 - `partner` (prevcom, caio, etc.)
-- `user-agent` (para rate limiting)
 - `channel` (WEB, MOBILE, etc.)
 - `fingerprint` (identificação do dispositivo)
 
@@ -199,11 +197,6 @@ AWS_ENDPOINT=http://localhost:4566
 ### Configurações Importantes
 
 ```yaml
-# Rate Limiting
-app:
-  rate-limit:
-    requests-per-minute: 20
-    
 # Session Management
 app:
   session:

@@ -18,6 +18,6 @@ dependencies {
     implementation("io.jsonwebtoken:jjwt-impl:0.12.3")
     implementation("io.jsonwebtoken:jjwt-jackson:0.12.3")
     
-    // Redis for rate limiting
+    // Redis for session storage  
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 }

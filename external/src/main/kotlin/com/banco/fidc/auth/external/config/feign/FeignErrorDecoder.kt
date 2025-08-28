@@ -16,7 +16,7 @@ class FeignErrorDecoder : ErrorDecoder {
             401 -> SecurityException("Unauthorized: $methodKey")
             403 -> SecurityException("Forbidden: $methodKey")
             404 -> NoSuchElementException("Not Found: $methodKey")
-            429 -> IllegalStateException("Rate Limited: $methodKey")
+            429 -> IllegalStateException("Too Many Requests: $methodKey")
             500, 502, 503, 504 -> RuntimeException("Server Error (${response.status()}): $methodKey")
             else -> RuntimeException("HTTP ${response.status()}: $methodKey")
         }

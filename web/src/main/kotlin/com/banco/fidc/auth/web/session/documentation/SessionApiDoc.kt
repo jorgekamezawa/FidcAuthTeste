@@ -82,7 +82,7 @@ interface SessionApiDoc {
         ),
         ApiResponse(
             responseCode = "403",
-            description = "Forbidden - User not authorized or rate limit exceeded",
+            description = "Forbidden - User not authorized",
             content = [Content(schema = Schema(implementation = ErrorResponse::class))]
         ),
         ApiResponse(
@@ -230,11 +230,6 @@ interface SessionApiDoc {
             content = [Content(schema = Schema(implementation = ErrorResponse::class))]
         ),
         ApiResponse(
-            responseCode = "429",
-            description = "Too Many Requests - Rate limit exceeded",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
             responseCode = "503",
             description = "Service Unavailable - FidcPermission service temporarily unavailable",
             content = [Content(schema = Schema(implementation = ErrorResponse::class))]
@@ -330,23 +325,6 @@ interface SessionApiDoc {
                         "status": 403,
                         "error": "Forbidden",
                         "message": "Partner não autorizado para esta sessão",
-                        "path": "/v1/sessions"
-                    }"""
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "429",
-            description = "Too Many Requests - Rate limit exceeded",
-            content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "Rate limit exceeded",
-                    value = """{
-                        "timestamp": "2025-08-18T14:45:32",
-                        "status": 429,
-                        "error": "Too Many Requests",
-                        "message": "Rate limit excedido",
                         "path": "/v1/sessions"
                     }"""
                 )]
