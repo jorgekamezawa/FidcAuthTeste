@@ -2,7 +2,7 @@
 
 ---
 id: presentation-layer
-version: 1.0.0
+version: 2.0.0
 requires: [meta-prompt, project-context, initial-setup, infrastructure-base, domain-layer, application-layer]
 provides: [rest-apis, swagger-docs, exception-handling, request-validation]
 optional: false
@@ -98,32 +98,63 @@ Qual endpoint gostaria de implementar primeiro?"
 Confirma esta estrutura?"
 ```
 
-### 3. Tratamento de Exceções
+### 3. Tratamento de Exceções Estruturado
 ```
-"Para tratamento de erros, vou implementar:
+"Para tratamento de erros, vou implementar handlers estruturados por contexto:
 
 **Handler Global** (Order 100):
-- Captura exceções não tratadas
-- Erros de validação
-- Headers obrigatórios ausentes
+- Captura exceções não tratadas (Exception.class)
+- Erros de validação Bean Validation (MethodArgumentNotValidException) 
+- Headers obrigatórios ausentes (MissingRequestHeaderException)
+- IllegalArgumentException para validações customizadas
 
-**Handler Específico** (Order 1):
-- BusinessException → 400/403/404
-- InfrastructureException → 503
-- Exceções específicas do contexto
+**Handler Específico por Contexto** (Order 1):
+- Métodos @ExceptionHandler agrupados por tipo de erro e comportamento:
+  * Grupo 1: Validação (400) - InvalidInputException, ValidationException
+  * Grupo 2: Recursos não encontrados (404) - NotFoundException
+  * Grupo 3: Serviços indisponíveis (503) - IntegrationException
+  * Grupo 4: Erros internos (500) - ProcessingException
+  * Grupo 5: Infraestrutura (500/503) - InfrastructureException
 
-**Formato de erro padrão**:
+**ANTI-PADRÕES A EVITAR**:
+- ❌ NUNCA usar when statements com message parsing
+- ❌ NUNCA analisar ex.message para determinar status HTTP
+- ❌ NUNCA usar lógica complexa de decisão baseada em strings
+
+**PADRÕES OBRIGATÓRIOS**:
+- ✅ Um @ExceptionHandler por grupo de exceções similares
+- ✅ Logging estruturado com contexto da requisição
+- ✅ Mensagens padronizadas em português para erros 500
+- ✅ Usar ex.message diretamente para erros de validação (400/404)
+
+**Formatos de erro padrão**:
+
+*ErrorResponse (400, 403, 404, 500, 503):*
 ```json
 {
-  "timestamp": "2025-07-24T14:45:32",
+  "timestamp": "2025-08-28T14:45:32",
   "status": 400,
   "error": "Bad Request",
-  "message": "Mensagem específica",
-  "path": "/api/endpoint"
+  "message": "Mensagem específica do erro",
+  "path": "/v1/sessions"
 }
 ```
 
-Concorda com esta estratégia?"
+*ValidationErrorResponse (400 - Bean Validation):*
+```json
+{
+  "timestamp": "2025-08-28T14:45:32",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Dados de entrada inválidos",
+  "path": "/v1/sessions",
+  "errors": {
+    "signedData": "signedData é obrigatório"
+  }
+}
+```
+
+Concorda com esta estratégia estruturada?"
 ```
 
 ## 📁 ESTRUTURAS A SEREM GERADAS
@@ -203,46 +234,49 @@ class SwaggerConfig {
 // Apenas referenciar que já existe
 ```
 
-#### ErrorResponse DTOs
+#### ErrorResponse DTOs (Português)
 ```kotlin
 package [package].web.common.exception.dto
 
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
-@Schema(description = "Standard API error response")
+@Schema(description = "Resposta padrão de erro da API")
 data class ErrorResponse(
-    @Schema(description = "Error timestamp", example = "2025-06-30T10:30:00")
+    @Schema(description = "Timestamp do erro", example = "2025-08-28T14:45:32")
     val timestamp: LocalDateTime,
     
-    @Schema(description = "HTTP status code", example = "400")
+    @Schema(description = "Código de status HTTP", example = "400")
     val status: Int,
     
-    @Schema(description = "Error type", example = "Bad Request")
+    @Schema(description = "Tipo do erro", example = "Bad Request")
     val error: String,
     
-    @Schema(description = "Error message", example = "Invalid data")
+    @Schema(description = "Mensagem descritiva do erro", example = "Dados inválidos")
     val message: String,
     
-    @Schema(description = "Request path", example = "/api/v1/resource")
+    @Schema(description = "Caminho da requisição que causou o erro", example = "/v1/sessions")
     val path: String
 )
 
-@Schema(description = "Validation error response with field details")
+@Schema(description = "Resposta de erro de validação com detalhes por campo")
 data class ValidationErrorResponse(
-    @Schema(description = "Error timestamp", example = "2025-06-30T10:30:00")
+    @Schema(description = "Timestamp do erro", example = "2025-08-28T14:45:32")
     val timestamp: LocalDateTime,
     
-    @Schema(description = "HTTP status code", example = "400")
+    @Schema(description = "Código de status HTTP", example = "400")
     val status: Int,
     
-    @Schema(description = "Error type", example = "Bad Request")
+    @Schema(description = "Tipo do erro", example = "Bad Request")
     val error: String,
     
-    @Schema(description = "General message", example = "Invalid input data")
+    @Schema(description = "Mensagem geral do erro", example = "Dados de entrada inválidos")
     val message: String,
     
-    @Schema(description = "Field-specific errors")
+    @Schema(description = "Caminho da requisição que causou o erro", example = "/v1/sessions")
+    val path: String,
+    
+    @Schema(description = "Erros específicos por campo", example = "{\"signedData\": \"signedData é obrigatório\"}")
     val errors: Map<String, String>
 )
 ```
@@ -297,6 +331,7 @@ class GlobalExceptionHandler {
             status = HttpStatus.BAD_REQUEST.value(),
             error = HttpStatus.BAD_REQUEST.reasonPhrase,
             message = "Validation error in request fields",
+            path = request.requestURI,
             errors = fieldErrors
         )
 
@@ -318,7 +353,7 @@ class GlobalExceptionHandler {
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
         logger.error("Unhandled error: {}", ex.message, ex)
-        val message = "Internal system error. Please contact support."
+        val message = "Erro interno do sistema. Entre em contato com o suporte técnico se o problema persistir."
         return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, request)
     }
 
@@ -359,57 +394,63 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 
 @Tag(
-    name = "[Contexto de Negócio]",
-    description = "[Descrição das operações deste contexto]"
+    name = "[Contexto de Negócio em Português]",
+    description = "[Descrição completa das operações deste contexto em português]"
 )
 interface [Nome]ApiDoc {
 
     @Operation(
-        summary = "[Resumo da operação]",
-        description = "[Descrição detalhada do que a operação faz]"
+        summary = "[Resumo da operação em português]",
+        description = "[Descrição detalhada do que a operação faz, incluindo validações e comportamentos específicos]"
     )
     @ApiResponses(value = [
         ApiResponse(
             responseCode = "200",
-            description = "Success response",
+            description = "[Descrição do sucesso em português]",
             content = [Content(
                 schema = Schema(implementation = [Ação][Recurso]Response::class),
                 examples = [ExampleObject(
-                    name = "Success",
+                    name = "Sucesso",
                     value = """{"campo": "valor", "outrocampo": 123}"""
                 )]
             )]
         ),
         ApiResponse(
-            responseCode = "400",
-            description = "Bad Request - Invalid input data",
+            responseCode = "4XX",
+            description = "Erros de validação de campos - Retorna ValidationErrorResponse",
             content = [Content(
-                schema = Schema(implementation = ErrorResponse::class),
+                schema = Schema(implementation = ValidationErrorResponse::class),
                 examples = [ExampleObject(
+                    name = "ValidationErrorResponse",
                     value = """{
-                        "timestamp": "2025-07-24T14:45:32",
+                        "timestamp": "2025-08-28T14:45:32",
                         "status": 400,
                         "error": "Bad Request",
-                        "message": "Invalid data provided",
-                        "path": "/api/v1/[recurso]"
+                        "message": "Dados de entrada inválidos",
+                        "path": "/v1/[recurso]",
+                        "errors": {
+                            "campo": "campo é obrigatório"
+                        }
                     }"""
                 )]
             )]
         ),
         ApiResponse(
-            responseCode = "403",
-            description = "Forbidden - [Specific case]",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "404",
-            description = "Not Found - [Resource] not found",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "503",
-            description = "Service Unavailable - External service temporarily unavailable",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+            responseCode = "default",
+            description = "Erros gerais - Retorna ErrorResponse para códigos 403, 404, 503, etc.",
+            content = [Content(
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [ExampleObject(
+                    name = "ErrorResponse",
+                    value = """{
+                        "timestamp": "2025-08-28T14:45:32",
+                        "status": 403,
+                        "error": "Forbidden",
+                        "message": "Usuário não autorizado",
+                        "path": "/v1/[recurso]"
+                    }"""
+                )]
+            )]
         )
     ])
     fun [ação][Recurso](
@@ -498,7 +539,7 @@ import [package].usecase.[contexto].dto.input.[Ação][Recurso]Input
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.*
 
-@Schema(description = "[Descrição do request]")
+@Schema(description = "[Descrição completa do request em português]")
 data class [Ação][Recurso]Request(
     [PARA CAMPOS OBRIGATÓRIOS]
     @field:NotBlank(message = "[Campo] is required")
@@ -565,7 +606,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-@Schema(description = "[Descrição do response]")
+@Schema(description = "[Descrição completa do response em português]")
 data class [Ação][Recurso]Response(
     @Schema(description = "[Descrição]", example = "[exemplo]")
     val [campo]: String,
@@ -610,11 +651,12 @@ private fun maskEmail(email: String): String {
 }
 ```
 
-#### Context-Specific Exception Handler
+#### Context-Specific Exception Handler (Estruturado por Grupos)
 ```kotlin
 package [package].web.[contexto].exception
 
 import [package].shared.exception.*
+import [package].usecase.[contexto].exception.*
 import [package].web.common.exception.dto.ErrorResponse
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
@@ -631,33 +673,91 @@ class [Contexto]ExceptionHandler {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    @ExceptionHandler(BusinessException::class)
-    fun handleBusinessException(
+    // Grupo 1: Validação de Entrada (400) - Usar ex.message
+    @ExceptionHandler([Contexto]ValidationException::class, InvalidInputException::class)
+    fun handleValidationErrors(
         ex: BusinessException,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        logger.warn("Business error: {}", ex.message)
-
-        val status = when (ex) {
-            is [Contexto]NotFoundException -> HttpStatus.NOT_FOUND
-            is [Contexto]ValidationException -> HttpStatus.BAD_REQUEST
-            is [Contexto]BusinessRuleException -> HttpStatus.FORBIDDEN
-            [OUTRAS EXCEÇÕES ESPECÍFICAS]
-            else -> HttpStatus.BAD_REQUEST
-        }
-
-        return buildErrorResponse(status, ex.message ?: "Business error", request)
+        logger.warn("[Contexto] validation error on {}: {}", request.requestURI, ex.message)
+        
+        val message = ex.message ?: "Invalid request data"
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request)
     }
 
+    // Grupo 2: Recursos Não Encontrados (404) - Usar ex.message  
+    @ExceptionHandler([Contexto]NotFoundException::class)
+    fun handleNotFoundErrors(
+        ex: BusinessException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        logger.warn("[Contexto] not found on {}: {}", request.requestURI, ex.message)
+        
+        val message = ex.message ?: "Resource not found"
+        return buildErrorResponse(HttpStatus.NOT_FOUND, message, request)
+    }
+
+    // Grupo 3: Serviços Indisponíveis (503) - Mensagem customizada
+    @ExceptionHandler([External]IntegrationException::class)
+    fun handleServiceUnavailableErrors(
+        ex: BusinessException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        logger.error("Service integration failure on {}: {}", request.requestURI, ex.message, ex)
+        
+        val message = when (ex) {
+            is UserManagementIntegrationException -> "Serviço de usuários temporariamente indisponível"
+            is [Other]IntegrationException -> "Serviço [nome] temporariamente indisponível"
+            else -> "Serviço temporariamente indisponível"
+        }
+        
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, message, request)
+    }
+
+    // Grupo 4: Erros Internos (500) - Mensagem padronizada + logging completo
+    @ExceptionHandler([Contexto]ProcessingException::class)
+    fun handleInternalProcessingErrors(
+        ex: [Contexto]ProcessingException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        logger.error(
+            "[Contexto] processing failure on {} - Request: {} - Error: {}", 
+            request.requestURI,
+            request.queryString ?: "no-query",
+            ex.message,
+            ex
+        )
+        
+        return buildErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Ocorreu um erro interno no sistema. Entre em contato com o suporte técnico se o problema persistir.",
+            request
+        )
+    }
+
+    // Grupo 5: Infraestrutura (500/503) - Sempre erros técnicos
     @ExceptionHandler(InfrastructureException::class)
-    fun handleInfrastructureException(
+    fun handleInfrastructureErrors(
         ex: InfrastructureException,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        logger.error("Infrastructure error [${ex.component}]: ${ex.message}", ex)
+        logger.error(
+            "Infrastructure failure [{}] on {} - Request: {} - Error: {}", 
+            ex.component,
+            request.requestURI,
+            request.queryString ?: "no-query",
+            ex.message,
+            ex
+        )
 
-        val message = "Service temporarily unavailable. Please try again later."
-        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, message, request)
+        val (status, message) = when (ex.component) {
+            "Redis", "RedisRepository", "PostgreSQL", "[Component]Repository" -> 
+                HttpStatus.SERVICE_UNAVAILABLE to "Serviço temporariamente indisponível"
+            else -> 
+                HttpStatus.INTERNAL_SERVER_ERROR to "Ocorreu um erro interno no sistema. Entre em contato com o suporte técnico se o problema persistir."
+        }
+
+        return buildErrorResponse(status, message, request)
     }
 
     private fun buildErrorResponse(
@@ -727,10 +827,43 @@ class [Contexto]ExceptionHandler {
 - **Logging diferenciado**: WARN para negócio, ERROR para infra
 
 ### Swagger
-- **Exemplos realistas**: Para cada response code
-- **Descrições claras**: Em inglês
+- **Exemplos realísticos**: Para cada response code principal
+- **Descrições claras**: EM PORTUGUÊS (mudou de inglês para português)
+- **Simplificação de erros**: Máximo 2 exemplos (ValidationErrorResponse + ErrorResponse)
+- **Padrão de responseCode**: '4XX' para validação, 'default' para erros gerais
 - **Pattern informativo**: Validação real no backend
+- **Default values**: JWT tokens e valores de exemplo para facilitar testes
 - **Tags organizadas**: Por contexto de negócio
+
+## 📋 CHECKLIST DE IMPLEMENTAÇÃO
+
+### Antes de Iniciar
+- [ ] Verificar use cases implementados na camada Application
+- [ ] Confirmar DTOs Input/Output definidos no usecase  
+- [ ] Validar exceções customizadas definidas no shared
+- [ ] Mapear endpoints e contratos de API
+
+### Exception Handlers (OBRIGATÓRIO)
+- [ ] **NUNCA usar when statements** com message parsing
+- [ ] **NUNCA analisar ex.message** para determinar status HTTP
+- [ ] Implementar handlers agrupados por comportamento:
+  - [ ] Grupo 1: Validação (400) - InvalidInputException, ValidationException
+  - [ ] Grupo 2: Not Found (404) - NotFoundException  
+  - [ ] Grupo 3: Service Unavailable (503) - IntegrationException
+  - [ ] Grupo 4: Internal Error (500) - ProcessingException
+  - [ ] Grupo 5: Infrastructure (500/503) - InfrastructureException
+- [ ] Logging estruturado com request.requestURI e queryString
+- [ ] Mensagens padronizadas em português para erros 500
+- [ ] Usar ex.message diretamente para erros de validação
+
+### Swagger Documentation
+- [ ] Todas as descrições em **PORTUGUÊS**
+- [ ] Máximo 2 exemplos de erro por endpoint:
+  - [ ] "4XX" → ValidationErrorResponse
+  - [ ] "default" → ErrorResponse  
+- [ ] Default values em @Parameter para facilitar testes
+- [ ] JWT tokens de exemplo fornecidos pelo usuário
+- [ ] Tags organizadas por contexto de negócio
 
 ### Padrões da Empresa
 - **Correlation ID**: Gerenciado pelo CorrelationIdFilter, NUNCA repassar manualmente
@@ -745,6 +878,16 @@ class [Contexto]ExceptionHandler {
 <!-- Registro de melhorias durante uso -->
 
 ### NOTAS DE VERSÃO
+
+#### v2.0.0
+- **Exception Handling Estruturado**: Eliminação de when statements e message parsing
+- **Handlers Agrupados**: Métodos @ExceptionHandler por tipo de comportamento
+- **Swagger em Português**: Toda documentação traduzida para português
+- **Simplificação de Exemplos**: Máximo 2 exemplos por endpoint (4XX + default)
+- **Padrão ResponseCode**: '4XX' para ValidationErrorResponse, 'default' para ErrorResponse
+- **Mensagens Padronizadas**: Erros 500 em português, validação usa ex.message
+- **Logging Estruturado**: Com contexto completo da requisição
+- **Default Values**: JWT tokens e exemplos prontos para facilitar testes da API
 
 #### v1.0.0
 - Versão inicial do PRESENTATION-LAYER
