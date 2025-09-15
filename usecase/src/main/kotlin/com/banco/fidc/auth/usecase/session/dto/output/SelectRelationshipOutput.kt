@@ -18,7 +18,7 @@ fun Session.toSelectRelationshipOutput(accessToken: String): SelectRelationshipO
         userInfo = this.userInfo.toUserInfoData(),
         fund = this.fund.toFundData(),
         relationshipList = this.relationshipList.map { it.toRelationshipData() },
-        relationshipSelected = this.relationshipsSelected!!.toRelationshipData(),
+        relationshipSelected = this.relationshipSelected!!.toRelationshipData(),
         permissions = this.permissions,
         accessToken = accessToken
     )

@@ -1,18 +1,18 @@
 package com.banco.fidc.auth.web.session.controller
 
 import com.banco.fidc.auth.usecase.session.CreateUserSessionUseCase
-import com.banco.fidc.auth.usecase.session.SelectRelationshipUseCase
 import com.banco.fidc.auth.usecase.session.EndSessionUseCase
 import com.banco.fidc.auth.usecase.session.GetJwtSecretUseCase
-import com.banco.fidc.auth.usecase.session.dto.input.SelectRelationshipInput
+import com.banco.fidc.auth.usecase.session.SelectRelationshipUseCase
 import com.banco.fidc.auth.usecase.session.dto.input.EndSessionInput
+import com.banco.fidc.auth.usecase.session.dto.input.SelectRelationshipInput
 import com.banco.fidc.auth.web.common.extension.getClientIp
 import com.banco.fidc.auth.web.session.documentation.SessionApiDoc
 import com.banco.fidc.auth.web.session.dto.request.CreateUserSessionRequest
 import com.banco.fidc.auth.web.session.dto.request.toInput
 import com.banco.fidc.auth.web.session.dto.response.CreateUserSessionResponse
-import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
 import com.banco.fidc.auth.web.session.dto.response.GetJwtSecretResponse
+import com.banco.fidc.auth.web.session.dto.response.SelectRelationshipResponse
 import com.banco.fidc.auth.web.session.dto.response.toResponse
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import java.util.UUID
 
 @RestController
 @RequestMapping("/v1/sessions")
@@ -96,7 +95,7 @@ class SessionController(
             relationshipId = relationshipId,
             partner = partner
         )
-        
+
         val output = selectRelationshipUseCase.execute(input)
         val response = output.toResponse()
 
@@ -134,7 +133,7 @@ class SessionController(
         @RequestHeader("x-correlation-id", required = false) correlationId: String?
     ): GetJwtSecretResponse {
         logger.info("Received getJwtSecret request")
-        
+
         val output = getJwtSecretUseCase.execute()
         val response = output.toResponse()
 

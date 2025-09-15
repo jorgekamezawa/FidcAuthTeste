@@ -99,6 +99,7 @@ class FidcPermissionServiceImpl(
                         "VIEW_PLAN_SUMMARY",
                         "DOWNLOAD_BASIC_DOCUMENTS",
                         "VIEW_PLAN_DETAILS",
+                        "CREATE_SIMULATION",
                         "VIEW_CONTRIBUTIONS_HISTORY",
                         "DOWNLOAD_PLAN_STATEMENT"
                     )

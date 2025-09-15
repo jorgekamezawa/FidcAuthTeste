@@ -254,7 +254,7 @@
         "contractNumber": "378192372163682"
       }
     ],
-    "relationshipsSelected": null,
+    "relationshipSelected": null,
     "permissions": [
       "VIEW_PROFILE",
       "VIEW_STATEMENTS",

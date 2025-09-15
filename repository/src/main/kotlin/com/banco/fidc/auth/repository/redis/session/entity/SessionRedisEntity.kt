@@ -9,13 +9,13 @@ import java.util.UUID
 
 data class SessionRedisEntity(
     val sessionId: UUID,
-    
+
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     val createdAt: LocalDateTime,
-    
+
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     val updatedAt: LocalDateTime,
-    
+
     val partner: String,
     val userAgent: String,
     val channel: String,
@@ -24,7 +24,7 @@ data class SessionRedisEntity(
     val userInfo: UserInfoRedis,
     val fund: FundRedis,
     val relationshipList: List<RelationshipRedis>,
-    val relationshipsSelected: RelationshipRedis?,
+    val relationshipSelected: RelationshipRedis?,
     val permissions: List<String>,
     val ttlMinutes: Int
 )
@@ -68,7 +68,7 @@ fun Session.toRedisEntity(): SessionRedisEntity {
         userInfo = this.userInfo.toRedis(),
         fund = this.fund.toRedis(),
         relationshipList = this.relationshipList.map { it.toRedis() },
-        relationshipsSelected = this.relationshipsSelected?.toRedis(),
+        relationshipSelected = this.relationshipSelected?.toRedis(),
         permissions = this.permissions,
         ttlMinutes = this.ttlMinutes
     )
@@ -89,7 +89,7 @@ fun SessionRedisEntity.toDomainEntity(): Session {
         userInfo = this.userInfo.toDomain(),
         fund = this.fund.toDomain(),
         relationshipList = this.relationshipList.map { it.toDomain() },
-        relationshipsSelected = this.relationshipsSelected?.toDomain(),
+        relationshipSelected = this.relationshipSelected?.toDomain(),
         permissions = this.permissions,
         ttlMinutes = this.ttlMinutes
     )

@@ -45,7 +45,7 @@ class PostgresConfig(
         
         val hikariConfig = HikariConfig().apply {
             driverClassName = "org.postgresql.Driver"
-            jdbcUrl = "jdbc:postgresql://${databaseConfig.host}:${databaseConfig.port}/${databaseConfig.dbname}"
+            jdbcUrl = "jdbc:postgresql://localhost:${databaseConfig.port}/${databaseConfig.dbname}"
             username = databaseConfig.username
             password = databaseConfig.password
             

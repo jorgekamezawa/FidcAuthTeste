@@ -18,7 +18,7 @@ class Session private constructor(
     private var _userInfo: UserInfo,
     private var _fund: Fund,
     private var _relationshipList: MutableList<Relationship>,
-    private var _relationshipsSelected: Relationship?,
+    private var _relationshipSelected: Relationship?,
     private var _permissions: MutableList<String>,
     private var _ttlMinutes: Int
 ) {
@@ -33,7 +33,7 @@ class Session private constructor(
     val userInfo: UserInfo get() = _userInfo
     val fund: Fund get() = _fund
     val relationshipList: List<Relationship> get() = _relationshipList.toList()
-    val relationshipsSelected: Relationship? get() = _relationshipsSelected
+    val relationshipSelected: Relationship? get() = _relationshipSelected
     val permissions: List<String> get() = _permissions.toList()
     val ttlMinutes: Int get() = _ttlMinutes
 
@@ -69,7 +69,7 @@ class Session private constructor(
                 _userInfo = userInfo,
                 _fund = fund,
                 _relationshipList = relationshipList.toMutableList(),
-                _relationshipsSelected = null,
+                _relationshipSelected = null,
                 _permissions = permissions.toMutableList(),
                 _ttlMinutes = ttlMinutes
             )
@@ -87,7 +87,7 @@ class Session private constructor(
             userInfo: UserInfo,
             fund: Fund,
             relationshipList: List<Relationship>,
-            relationshipsSelected: Relationship?,
+            relationshipSelected: Relationship?,
             permissions: List<String>,
             ttlMinutes: Int
         ): Session {
@@ -103,7 +103,7 @@ class Session private constructor(
                 _userInfo = userInfo,
                 _fund = fund,
                 _relationshipList = relationshipList.toMutableList(),
-                _relationshipsSelected = relationshipsSelected,
+                _relationshipSelected = relationshipSelected,
                 _permissions = permissions.toMutableList(),
                 _ttlMinutes = ttlMinutes
             )
@@ -135,7 +135,7 @@ class Session private constructor(
             )
         }
 
-        _relationshipsSelected = relationship
+        _relationshipSelected = relationship
         _updatedAt = LocalDateTime.now()
     }
 
